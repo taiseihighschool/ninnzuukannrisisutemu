@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta name="viewport"
+        content="width=device-width,
+                 initial-scale=1.0">
+
+  <title>人数管理画面</title>
+
+
+  <style>
+
+    body {
+
+      margin: 0;
+
+      background: #eeeeee;
+
+      font-family: sans-serif;
+
+      text-align: center;
+
+    }
+
+
+    h1 {
+
+      background: #222;
+
+      color: white;
+
+      margin: 0;
+
+      padding: 20px;
+
+    }
+
+
+    .container {
+
+      max-width: 700px;
+
+      margin: 30px auto;
+
+      padding: 20px;
+
+    }
+
+
+    .main-count {
+
+      background: white;
+
+      border-radius: 20px;
+
+      padding: 30px;
+
+      margin-bottom: 20px;
+
+      box-shadow:
+        0 3px 10px
+        rgba(0,0,0,0.2);
+
+    }
+
+
+    .count {
+
+      font-size: 70px;
+
+      font-weight: bold;
+
+    }
+
+
+    .cards {
+
+      display: flex;
+
+      gap: 15px;
+
+      justify-content: center;
+
+    }
+
+
+    .card {
+
+      background: white;
+
+      border-radius: 15px;
+
+      padding: 25px;
+
+      width: 180px;
+
+      box-shadow:
+        0 3px 10px
+        rgba(0,0,0,0.15);
+
+    }
+
+
+    .number {
+
+      font-size: 40px;
+
+      font-weight: bold;
+
+    }
+
+
+    .status {
+
+      margin-top: 20px;
+
+      background: white;
+
+      border-radius: 15px;
+
+      padding: 20px;
+
+    }
+
+
+    .online {
+
+      color: green;
+
+      font-weight: bold;
+
+    }
+
+
+    .offline {
+
+      color: red;
+
+      font-weight: bold;
+
+    }
+
+
+    @media (max-width: 600px) {
+
+      .cards {
+
+        flex-direction: column;
+
+        align-items: center;
+
+      }
+
+      .card {
+
+        width: 80%;
+
+      }
+
+      .count {
+
+        font-size: 55px;
+
+      }
+
+    }
+
+  </style>
+
+</head>
+
+
+<body>
+
+  <h1>
+    📊 AI人数管理システム
+  </h1>
+
+
+  <div class="container">
+
+
+    <!-- 現在人数 -->
+
+    <div class="main-count">
+
+      <h2>
+        現在の人数
+      </h2>
+
+      <div
+        id="peopleCount"
+        class="count">
+
+        0人
+
+      </div>
+
+    </div>
+
+
+    <!-- 入退室 -->
+
+    <div class="cards">
+
+
+      <div class="card">
+
+        <h3>
+          入室
+        </h3>
+
+        <div
+          id="entryCount"
+          class="number">
+
+          0
+
+        </div>
+
+        <p>人</p>
+
+      </div>
+
+
+      <div class="card">
+
+        <h3>
+          退出
+        </h3>
+
+        <div
+          id="exitCount"
+          class="number">
+
+          0
+
+        </div>
+
+        <p>人</p>
+
+      </div>
+
+
+    </div>
+
+
+    <!-- システム状態 -->
+
+    <div class="status">
+
+      <h2>
+        システム状態
+      </h2>
+
+
+      <p>
+        カメラ：
+        <span id="cameraStatus">
+          未接続
+        </span>
+      </p>
+
+
+      <p>
+        AI：
+        <span id="aiStatus">
+          未接続
+        </span>
+      </p>
+
+
+      <p>
+        最終更新：
+        <span id="updateTime">
+          ---
+        </span>
+      </p>
+
+    </div>
+
+
+  </div>
+
+
+  <script src="management.js"></script>
+
+</body>
+
+</html>
