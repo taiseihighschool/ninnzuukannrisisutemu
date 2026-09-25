@@ -2,83 +2,99 @@
 <html lang="ja">
 
 <head>
-
   <meta charset="UTF-8">
 
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1.0">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+  >
 
-  <title>AIカメラ</title>
+  <meta
+    name="screen-orientation"
+    content="landscape"
+  >
 
+  <title>AI人数管理システム - 横画面</title>
 
   <!-- p5.js -->
-
   <script src="https://cdn.jsdelivr.net/npm/p5@1.11.10/lib/p5.min.js"></script>
 
-
   <!-- TensorFlow.js -->
-
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
 
-
   <!-- COCO-SSD -->
-
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
-
 
   <style>
 
-    body {
+    * {
+      box-sizing: border-box;
+    }
 
+    html,
+    body {
       margin: 0;
+      padding: 0;
+
+      width: 100%;
+      height: 100%;
+
+      overflow: hidden;
 
       background: #111;
-
       color: white;
 
       font-family: sans-serif;
-
-      text-align: center;
-
     }
 
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
 
-    h1 {
+    main {
+      width: 100vw;
+      height: 100vh;
 
-      margin: 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
 
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+
+      max-width: 100vw;
+      max-height: 100vh;
+
+      width: 100vw !important;
+      height: 100vh !important;
     }
 
   </style>
 
 </head>
 
-
 <body>
 
-  <h1>📷 AIカメラ・入退室管理</h1>
-
-
-  <!-- ================================= -->
-  <!-- Firebase -->
-  <!-- ================================= -->
+  <main id="app"></main>
 
   <script type="module">
 
     import {
       initializeApp
     }
-    from
-      "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-
+    from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 
     import {
       getDatabase,
       ref,
       set
     }
-    from
-      "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+    from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
 
     const firebaseConfig = {
@@ -106,53 +122,46 @@
 
       measurementId:
         "G-D053Q0CVGR"
-
     };
 
 
-    // Firebase準備処理
+    window.firebaseReady = (async function () {
 
-    window.firebaseReady =
-      (async function() {
+      try {
 
         const app =
-          initializeApp(
-            firebaseConfig
-          );
-
+          initializeApp(firebaseConfig);
 
         const db =
           getDatabase(app);
 
+        window.firebaseDB = db;
 
-        window.firebaseDB =
-          db;
+        window.firebaseRef = ref;
 
-
-        window.firebaseRef =
-          ref;
-
-
-        window.firebaseSet =
-          set;
-
+        window.firebaseSet = set;
 
         console.log(
           "Firebase接続準備完了"
         );
 
-
         return db;
 
-      })();
+      } catch (error) {
+
+        console.error(
+          "Firebase初期化エラー:",
+          error
+        );
+
+      }
+
+    })();
 
   </script>
 
 
-  <!-- AIカメラ -->
-
   <script src="camera.js"></script>
-
 
 </body>
 
