@@ -14,7 +14,7 @@
     content="landscape"
   >
 
-  <title>AI人数管理システム - 横画面</title>
+  <title>AI人数管理システム - カメラ</title>
 
   <!-- p5.js -->
   <script src="https://cdn.jsdelivr.net/npm/p5@1.11.10/lib/p5.min.js"></script>
@@ -53,7 +53,7 @@
       align-items: center;
     }
 
-    main {
+    #app {
       width: 100vw;
       height: 100vh;
 
@@ -69,33 +69,44 @@
 
       max-width: 100vw;
       max-height: 100vh;
-
-      width: 100vw !important;
-      height: 100vh !important;
     }
 
   </style>
 
 </head>
 
+
 <body>
 
-  <main id="app"></main>
+  <div id="app"></div>
+
+
+  <!-- ==========================================
+       Firebase
+       ========================================== -->
 
   <script type="module">
 
     import {
       initializeApp
     }
-    from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+    from
+      "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+
 
     import {
       getDatabase,
       ref,
-      set
+      set,
+      onValue
     }
-    from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+    from
+      "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
+
+    // ==========================================
+    // Firebase設定
+    // ==========================================
 
     const firebaseConfig = {
 
@@ -122,45 +133,147 @@
 
       measurementId:
         "G-D053Q0CVGR"
+
     };
 
 
-    window.firebaseReady = (async function () {
+    // ==========================================
+    // Firebase開始
+    // ==========================================
 
-      try {
+    window.firebaseReady =
+      (async function () {
 
-        const app =
-          initializeApp(firebaseConfig);
+        try {
 
-        const db =
-          getDatabase(app);
+          const app =
+            initializeApp(
+              firebaseConfig
+            );
 
-        window.firebaseDB = db;
 
-        window.firebaseRef = ref;
+          const db =
+            getDatabase(
+              app
+            );
 
-        window.firebaseSet = set;
 
-        console.log(
-          "Firebase接続準備完了"
-        );
+          window.firebaseDB =
+            db;
 
-        return db;
 
-      } catch (error) {
+          window.firebaseRef =
+            ref;
 
-        console.error(
-          "Firebase初期化エラー:",
-          error
-        );
 
-      }
+          window.firebaseSet =
+            set;
 
-    })();
+
+          // ======================================
+          // リセット命令を監視
+          // ======================================
+
+          const resetRef =
+            ref(
+              db,
+              "people/reset"
+            );
+
+
+          onValue(
+            resetRef,
+            function (snapshot) {
+
+              const data =
+                snapshot.val();
+
+
+              if (!data) {
+                return;
+              }
+
+
+              if (
+                data.command !== "reset"
+              ) {
+                return;
+              }
+
+
+              const resetTime =
+                Number(
+                  data.time || 0
+                );
+
+
+              if (
+                typeof window.lastResetTime ===
+                "undefined"
+              ) {
+
+                window.lastResetTime = 0;
+
+              }
+
+
+              // 同じ命令を
+              // 何度も実行しない
+              if (
+                resetTime <=
+                window.lastResetTime
+              ) {
+
+                return;
+
+              }
+
+
+              window.lastResetTime =
+                resetTime;
+
+
+              console.log(
+                "Firebaseからリセット命令を受信"
+              );
+
+
+              if (
+                typeof resetSystem ===
+                "function"
+              ) {
+
+                resetSystem();
+
+              }
+
+            }
+          );
+
+
+          console.log(
+            "Firebase接続準備完了"
+          );
+
+
+          return db;
+
+
+        } catch (error) {
+
+          console.error(
+            "Firebase初期化エラー:",
+            error
+          );
+
+        }
+
+      })();
 
   </script>
 
 
+  <!-- カメラプログラム -->
   <script src="camera.js"></script>
 
 </body>
