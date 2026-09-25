@@ -2,46 +2,157 @@
 <html lang="ja">
 
 <head>
+
   <meta charset="UTF-8">
 
   <meta name="viewport"
-        content="width=device-width,
-                 initial-scale=1.0">
+        content="width=device-width, initial-scale=1.0">
 
   <title>AIカメラ</title>
 
+
   <!-- p5.js -->
+
   <script src="https://cdn.jsdelivr.net/npm/p5@1.11.10/lib/p5.min.js"></script>
 
+
   <!-- TensorFlow.js -->
+
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
 
+
   <!-- COCO-SSD -->
+
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
+
 
   <style>
 
     body {
+
       margin: 0;
+
       background: #111;
+
       color: white;
+
       font-family: sans-serif;
+
       text-align: center;
+
     }
 
+
     h1 {
+
       margin: 10px;
+
     }
 
   </style>
 
 </head>
 
+
 <body>
 
-  <h1>📷 AIカメラ画面</h1>
+  <h1>📷 AIカメラ・入退室管理</h1>
+
+
+  <!-- ================================= -->
+  <!-- Firebase -->
+  <!-- ================================= -->
+
+  <script type="module">
+
+    import {
+      initializeApp
+    }
+    from
+      "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+
+
+    import {
+      getDatabase,
+      ref,
+      set
+    }
+    from
+      "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+
+
+    const firebaseConfig = {
+
+      apiKey:
+        "AIzaSyAslBm8rtnbcpuMTMHHJbErpJoMp_im-fg",
+
+      authDomain:
+        "aininnzuukannri-136ec.firebaseapp.com",
+
+      databaseURL:
+        "https://aininnzuukannri-136ec-default-rtdb.firebaseio.com",
+
+      projectId:
+        "aininnzuukannri-136ec",
+
+      storageBucket:
+        "aininnzuukannri-136ec.firebasestorage.app",
+
+      messagingSenderId:
+        "761746001349",
+
+      appId:
+        "1:761746001349:web:f01d89e616dfe5689ccfac",
+
+      measurementId:
+        "G-D053Q0CVGR"
+
+    };
+
+
+    // Firebase準備処理
+
+    window.firebaseReady =
+      (async function() {
+
+        const app =
+          initializeApp(
+            firebaseConfig
+          );
+
+
+        const db =
+          getDatabase(app);
+
+
+        window.firebaseDB =
+          db;
+
+
+        window.firebaseRef =
+          ref;
+
+
+        window.firebaseSet =
+          set;
+
+
+        console.log(
+          "Firebase接続準備完了"
+        );
+
+
+        return db;
+
+      })();
+
+  </script>
+
+
+  <!-- AIカメラ -->
 
   <script src="camera.js"></script>
+
 
 </body>
 

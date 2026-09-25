@@ -6,8 +6,7 @@
   <meta charset="UTF-8">
 
   <meta name="viewport"
-        content="width=device-width,
-                 initial-scale=1.0">
+        content="width=device-width, initial-scale=1.0">
 
   <title>人数管理画面</title>
 
@@ -18,9 +17,22 @@
 
       margin: 0;
 
-      background: #eeeeee;
+      background: #111;
+
+      color: white;
 
       font-family: sans-serif;
+
+    }
+
+
+    .container {
+
+      max-width: 1000px;
+
+      margin: auto;
+
+      padding: 30px;
 
       text-align: center;
 
@@ -29,50 +41,45 @@
 
     h1 {
 
-      background: #222;
+      font-size: 40px;
 
-      color: white;
-
-      margin: 0;
-
-      padding: 20px;
-
-    }
-
-
-    .container {
-
-      max-width: 700px;
-
-      margin: 30px auto;
-
-      padding: 20px;
+      margin-bottom: 40px;
 
     }
 
 
     .main-count {
 
-      background: white;
+      background: #222;
 
       border-radius: 20px;
 
-      padding: 30px;
+      padding: 40px;
 
-      margin-bottom: 20px;
-
-      box-shadow:
-        0 3px 10px
-        rgba(0,0,0,0.2);
+      margin-bottom: 25px;
 
     }
 
 
-    .count {
+    .main-count-title {
 
-      font-size: 70px;
+      font-size: 28px;
+
+    }
+
+
+    #peopleCount {
+
+      font-size: 110px;
 
       font-weight: bold;
+
+    }
+
+
+    .unit {
+
+      font-size: 40px;
 
     }
 
@@ -81,91 +88,96 @@
 
       display: flex;
 
-      gap: 15px;
+      gap: 20px;
 
       justify-content: center;
+
+      flex-wrap: wrap;
 
     }
 
 
     .card {
 
-      background: white;
+      background: #222;
 
       border-radius: 15px;
 
-      padding: 25px;
+      padding: 30px;
 
-      width: 180px;
+      min-width: 220px;
 
-      box-shadow:
-        0 3px 10px
-        rgba(0,0,0,0.15);
+    }
+
+
+    .card-title {
+
+      font-size: 22px;
 
     }
 
 
     .number {
 
-      font-size: 40px;
+      font-size: 60px;
 
       font-weight: bold;
+
+      margin-top: 15px;
+
+    }
+
+
+    .visible {
+
+      color: #aaa;
 
     }
 
 
     .status {
 
-      margin-top: 20px;
+      margin-top: 30px;
 
-      background: white;
+      background: #222;
 
       border-radius: 15px;
 
-      padding: 20px;
+      padding: 25px;
+
+      text-align: left;
+
+      font-size: 20px;
 
     }
 
 
-    .online {
+    .status div {
 
-      color: green;
-
-      font-weight: bold;
+      margin: 12px 0;
 
     }
 
 
-    .offline {
+    .ok {
 
-      color: red;
-
-      font-weight: bold;
+      color: #00ff66;
 
     }
 
 
-    @media (max-width: 600px) {
+    .ng {
 
-      .cards {
+      color: #ff6666;
 
-        flex-direction: column;
+    }
 
-        align-items: center;
 
-      }
+    #errorMessage {
 
-      .card {
+      color: #ff6666;
 
-        width: 80%;
-
-      }
-
-      .count {
-
-        font-size: 55px;
-
-      }
+      margin-top: 20px;
 
     }
 
@@ -176,72 +188,107 @@
 
 <body>
 
-  <h1>
-    📊 AI人数管理システム
-  </h1>
-
 
   <div class="container">
 
 
+    <h1>
+      📊 人数管理システム
+    </h1>
+
+
+    <!-- ============================== -->
     <!-- 現在人数 -->
+    <!-- ============================== -->
 
     <div class="main-count">
 
-      <h2>
+      <div class="main-count-title">
         現在の人数
-      </h2>
+      </div>
 
-      <div
-        id="peopleCount"
-        class="count">
 
-        0人
+      <div>
+
+        <span id="peopleCount">
+          0
+        </span>
+
+        <span class="unit">
+          人
+        </span>
 
       </div>
 
     </div>
 
 
+    <!-- ============================== -->
     <!-- 入退室 -->
+    <!-- ============================== -->
 
     <div class="cards">
 
 
       <div class="card">
 
-        <h3>
+        <div class="card-title">
           入室
-        </h3>
+        </div>
 
         <div
-          id="entryCount"
+          id="enteredCount"
           class="number">
 
           0
 
         </div>
 
-        <p>人</p>
+        <div>
+          人
+        </div>
 
       </div>
 
 
       <div class="card">
 
-        <h3>
+        <div class="card-title">
           退出
-        </h3>
+        </div>
 
         <div
-          id="exitCount"
+          id="exitedCount"
           class="number">
 
           0
 
         </div>
 
-        <p>人</p>
+        <div>
+          人
+        </div>
+
+      </div>
+
+
+      <div class="card">
+
+        <div class="card-title">
+          現在カメラに映っている人数
+        </div>
+
+        <div
+          id="visiblePeopleCount"
+          class="number visible">
+
+          0
+
+        </div>
+
+        <div>
+          人
+        </div>
 
       </div>
 
@@ -249,45 +296,356 @@
     </div>
 
 
-    <!-- システム状態 -->
+    <!-- ============================== -->
+    <!-- 状態 -->
+    <!-- ============================== -->
 
     <div class="status">
 
-      <h2>
-        システム状態
-      </h2>
+
+      <div>
+
+        Firebase：
+        <span
+          id="firebaseStatus"
+          class="ok">
+
+          接続中...
+
+        </span>
+
+      </div>
 
 
-      <p>
+      <div>
+
         カメラ：
-        <span id="cameraStatus">
-          未接続
+        <span
+          id="cameraStatus">
+
+          確認中...
+
         </span>
-      </p>
+
+      </div>
 
 
-      <p>
+      <div>
+
         AI：
-        <span id="aiStatus">
-          未接続
+        <span
+          id="aiStatus">
+
+          確認中...
+
         </span>
-      </p>
+
+      </div>
 
 
-      <p>
+      <div>
+
         最終更新：
         <span id="updateTime">
-          ---
+          --
         </span>
-      </p>
+
+      </div>
+
 
     </div>
+
+
+    <div id="errorMessage"></div>
 
 
   </div>
 
 
-  <script src="management.js"></script>
+  <!-- ================================= -->
+  <!-- Firebase -->
+  <!-- ================================= -->
+
+  <script type="module">
+
+    import {
+      initializeApp
+    }
+    from
+      "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+
+
+    import {
+      getDatabase,
+      ref,
+      onValue
+    }
+    from
+      "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+
+
+    const firebaseConfig = {
+
+      apiKey:
+        "AIzaSyAslBm8rtnbcpuMTMHHJbErpJoMp_im-fg",
+
+      authDomain:
+        "aininnzuukannri-136ec.firebaseapp.com",
+
+      databaseURL:
+        "https://aininnzuukannri-136ec-default-rtdb.firebaseio.com",
+
+      projectId:
+        "aininnzuukannri-136ec",
+
+      storageBucket:
+        "aininnzuukannri-136ec.firebasestorage.app",
+
+      messagingSenderId:
+        "761746001349",
+
+      appId:
+        "1:761746001349:web:f01d89e616dfe5689ccfac",
+
+      measurementId:
+        "G-D053Q0CVGR"
+
+    };
+
+
+    try {
+
+
+      // Firebase開始
+
+      const app =
+        initializeApp(
+          firebaseConfig
+        );
+
+
+      const db =
+        getDatabase(app);
+
+
+      document.getElementById(
+        "firebaseStatus"
+      ).textContent =
+        "接続OK";
+
+
+      // =================================
+      // people/current
+      // =================================
+
+      const peopleRef =
+        ref(
+          db,
+          "people/current"
+        );
+
+
+      onValue(
+
+        peopleRef,
+
+        function(snapshot) {
+
+
+          const data =
+            snapshot.val();
+
+
+          console.log(
+            "受信データ:",
+            data
+          );
+
+
+          if (!data) {
+
+            return;
+
+          }
+
+
+          // =================================
+          // 現在人数
+          // =================================
+
+          document.getElementById(
+            "peopleCount"
+          ).textContent =
+            data.peopleCount ?? 0;
+
+
+          // =================================
+          // 入室
+          // =================================
+
+          document.getElementById(
+            "enteredCount"
+          ).textContent =
+            data.enteredCount ?? 0;
+
+
+          // =================================
+          // 退出
+          // =================================
+
+          document.getElementById(
+            "exitedCount"
+          ).textContent =
+            data.exitedCount ?? 0;
+
+
+          // =================================
+          // カメラ内人数
+          // =================================
+
+          document.getElementById(
+            "visiblePeopleCount"
+          ).textContent =
+            data.visiblePeopleCount ?? 0;
+
+
+          // =================================
+          // カメラ状態
+          // =================================
+
+          const cameraStatus =
+            document.getElementById(
+              "cameraStatus"
+            );
+
+
+          if (
+            data.cameraReady
+          ) {
+
+            cameraStatus.textContent =
+              "接続OK";
+
+            cameraStatus.className =
+              "ok";
+
+          }
+
+          else {
+
+            cameraStatus.textContent =
+              "接続待ち";
+
+            cameraStatus.className =
+              "ng";
+
+          }
+
+
+          // =================================
+          // AI状態
+          // =================================
+
+          const aiStatus =
+            document.getElementById(
+              "aiStatus"
+            );
+
+
+          if (
+            data.modelReady
+          ) {
+
+            aiStatus.textContent =
+              "稼働中";
+
+            aiStatus.className =
+              "ok";
+
+          }
+
+          else {
+
+            aiStatus.textContent =
+              "読み込み中";
+
+            aiStatus.className =
+              "ng";
+
+          }
+
+
+          // =================================
+          // 更新時間
+          // =================================
+
+          if (
+            data.updatedAt
+          ) {
+
+            const date =
+              new Date(
+                data.updatedAt
+              );
+
+
+            document.getElementById(
+              "updateTime"
+            ).textContent =
+              date.toLocaleTimeString();
+
+          }
+
+
+        },
+
+        function(error) {
+
+          console.error(
+            error
+          );
+
+
+          document.getElementById(
+            "firebaseStatus"
+          ).textContent =
+            "接続エラー";
+
+
+          document.getElementById(
+            "errorMessage"
+          ).textContent =
+            "Firebaseからデータを取得できません。";
+
+        }
+
+      );
+
+
+    }
+
+    catch (error) {
+
+      console.error(
+        error
+      );
+
+
+      document.getElementById(
+        "firebaseStatus"
+      ).textContent =
+        "接続エラー";
+
+
+      document.getElementById(
+        "errorMessage"
+      ).textContent =
+        "Firebase設定を確認してください。";
+
+    }
+
+  </script>
+
 
 </body>
 
