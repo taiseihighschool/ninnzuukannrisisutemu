@@ -2,183 +2,148 @@
 <html lang="ja">
 
 <head>
-
   <meta charset="UTF-8">
-
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <title>人数管理画面</title>
-
 
   <style>
 
     body {
-
       margin: 0;
-
       background: #111;
-
       color: white;
-
       font-family: sans-serif;
-
     }
-
 
     .container {
-
       max-width: 1000px;
-
       margin: auto;
-
       padding: 30px;
-
       text-align: center;
-
     }
-
 
     h1 {
-
       font-size: 40px;
-
       margin-bottom: 40px;
-
     }
-
 
     .main-count {
-
       background: #222;
-
       border-radius: 20px;
-
       padding: 40px;
-
       margin-bottom: 25px;
-
     }
-
 
     .main-count-title {
-
       font-size: 28px;
-
     }
-
 
     #peopleCount {
-
       font-size: 110px;
-
       font-weight: bold;
-
     }
-
 
     .unit {
-
       font-size: 40px;
-
     }
-
 
     .cards {
-
       display: flex;
-
       gap: 20px;
-
       justify-content: center;
-
       flex-wrap: wrap;
-
     }
-
 
     .card {
-
       background: #222;
-
       border-radius: 15px;
-
       padding: 30px;
-
       min-width: 220px;
-
     }
-
 
     .card-title {
-
       font-size: 22px;
-
     }
-
 
     .number {
-
       font-size: 60px;
-
       font-weight: bold;
-
       margin-top: 15px;
-
     }
-
 
     .visible {
-
       color: #aaa;
-
     }
-
 
     .status {
-
       margin-top: 30px;
-
       background: #222;
-
       border-radius: 15px;
-
       padding: 25px;
-
       text-align: left;
-
       font-size: 20px;
-
     }
-
 
     .status div {
-
       margin: 12px 0;
-
     }
-
 
     .ok {
-
       color: #00ff66;
-
     }
-
 
     .ng {
-
       color: #ff6666;
-
     }
 
-
     #errorMessage {
-
       color: #ff6666;
-
       margin-top: 20px;
+    }
 
+    /* ==========================================
+       リセットボタン
+       ========================================== */
+
+    .reset-area {
+      margin-top: 35px;
+    }
+
+    #resetButton {
+      border: none;
+      border-radius: 12px;
+
+      background: #d32f2f;
+      color: white;
+
+      font-size: 22px;
+      font-weight: bold;
+
+      padding: 18px 45px;
+
+      cursor: pointer;
+
+      transition: 0.2s;
+    }
+
+    #resetButton:hover {
+      background: #f44336;
+      transform: scale(1.03);
+    }
+
+    #resetButton:active {
+      transform: scale(0.98);
+    }
+
+    #resetButton:disabled {
+      background: #555;
+      cursor: not-allowed;
+    }
+
+    #resetStatus {
+      margin-top: 15px;
+      font-size: 18px;
     }
 
   </style>
@@ -188,25 +153,20 @@
 
 <body>
 
-
   <div class="container">
 
-
-    <h1>
-      📊 人数管理システム
-    </h1>
+    <h1>📊 人数管理システム</h1>
 
 
-    <!-- ============================== -->
-    <!-- 現在人数 -->
-    <!-- ============================== -->
+    <!-- ========================================
+         現在人数
+         ======================================== -->
 
     <div class="main-count">
 
       <div class="main-count-title">
         現在の人数
       </div>
-
 
       <div>
 
@@ -223,9 +183,9 @@
     </div>
 
 
-    <!-- ============================== -->
-    <!-- 入退室 -->
-    <!-- ============================== -->
+    <!-- ========================================
+         入室・退出・カメラ内人数
+         ======================================== -->
 
     <div class="cards">
 
@@ -238,10 +198,9 @@
 
         <div
           id="enteredCount"
-          class="number">
-
+          class="number"
+        >
           0
-
         </div>
 
         <div>
@@ -259,10 +218,9 @@
 
         <div
           id="exitedCount"
-          class="number">
-
+          class="number"
+        >
           0
-
         </div>
 
         <div>
@@ -280,10 +238,9 @@
 
         <div
           id="visiblePeopleCount"
-          class="number visible">
-
+          class="number visible"
+        >
           0
-
         </div>
 
         <div>
@@ -296,75 +253,74 @@
     </div>
 
 
-    <!-- ============================== -->
-    <!-- 状態 -->
-    <!-- ============================== -->
+    <!-- ========================================
+         状態
+         ======================================== -->
 
     <div class="status">
 
-
       <div>
-
         Firebase：
         <span
           id="firebaseStatus"
-          class="ok">
-
+          class="ok"
+        >
           接続中...
-
         </span>
-
       </div>
 
 
       <div>
-
         カメラ：
-        <span
-          id="cameraStatus">
-
+        <span id="cameraStatus">
           確認中...
-
         </span>
-
       </div>
 
 
       <div>
-
         AI：
-        <span
-          id="aiStatus">
-
+        <span id="aiStatus">
           確認中...
-
         </span>
-
       </div>
 
 
       <div>
-
         最終更新：
         <span id="updateTime">
           --
         </span>
-
       </div>
 
+    </div>
+
+
+    <!-- ========================================
+         リセット
+         ======================================== -->
+
+    <div class="reset-area">
+
+      <button
+        id="resetButton"
+      >
+        🔄 データをリセット
+      </button>
+
+      <div id="resetStatus"></div>
 
     </div>
 
 
     <div id="errorMessage"></div>
 
-
   </div>
 
 
-  <!-- ================================= -->
-  <!-- Firebase -->
-  <!-- ================================= -->
+  <!-- ==========================================
+       Firebase
+       ========================================== -->
 
   <script type="module">
 
@@ -378,11 +334,16 @@
     import {
       getDatabase,
       ref,
-      onValue
+      onValue,
+      set
     }
     from
       "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
+
+    // ==========================================
+    // Firebase設定
+    // ==========================================
 
     const firebaseConfig = {
 
@@ -413,10 +374,11 @@
     };
 
 
+    // ==========================================
+    // Firebase開始
+    // ==========================================
+
     try {
-
-
-      // Firebase開始
 
       const app =
         initializeApp(
@@ -425,18 +387,22 @@
 
 
       const db =
-        getDatabase(app);
+        getDatabase(
+          app
+        );
 
 
-      document.getElementById(
-        "firebaseStatus"
-      ).textContent =
+      document
+        .getElementById(
+          "firebaseStatus"
+        )
+        .textContent =
         "接続OK";
 
 
-      // =================================
-      // people/current
-      // =================================
+      // ========================================
+      // 人数データ
+      // ========================================
 
       const peopleRef =
         ref(
@@ -451,7 +417,6 @@
 
         function(snapshot) {
 
-
           const data =
             snapshot.val();
 
@@ -463,55 +428,61 @@
 
 
           if (!data) {
-
             return;
-
           }
 
 
-          // =================================
+          // ------------------------------------
           // 現在人数
-          // =================================
+          // ------------------------------------
 
-          document.getElementById(
-            "peopleCount"
-          ).textContent =
+          document
+            .getElementById(
+              "peopleCount"
+            )
+            .textContent =
             data.peopleCount ?? 0;
 
 
-          // =================================
+          // ------------------------------------
           // 入室
-          // =================================
+          // ------------------------------------
 
-          document.getElementById(
-            "enteredCount"
-          ).textContent =
+          document
+            .getElementById(
+              "enteredCount"
+            )
+            .textContent =
             data.enteredCount ?? 0;
 
 
-          // =================================
+          // ------------------------------------
           // 退出
-          // =================================
+          // ------------------------------------
 
-          document.getElementById(
-            "exitedCount"
-          ).textContent =
+          document
+            .getElementById(
+              "exitedCount"
+            )
+            .textContent =
             data.exitedCount ?? 0;
 
 
-          // =================================
-          // カメラ内人数
-          // =================================
+          // ------------------------------------
+          // カメラ内
+          // ------------------------------------
 
-          document.getElementById(
-            "visiblePeopleCount"
-          ).textContent =
+          document
+            .getElementById(
+              "visiblePeopleCount"
+            )
+            .textContent =
             data.visiblePeopleCount ?? 0;
 
 
-          // =================================
+          // ------------------------------------
           // カメラ状態
-          // =================================
+          // ------------------------------------
 
           const cameraStatus =
             document.getElementById(
@@ -542,9 +513,9 @@
           }
 
 
-          // =================================
+          // ------------------------------------
           // AI状態
-          // =================================
+          // ------------------------------------
 
           const aiStatus =
             document.getElementById(
@@ -575,9 +546,9 @@
           }
 
 
-          // =================================
+          // ------------------------------------
           // 更新時間
-          // =================================
+          // ------------------------------------
 
           if (
             data.updatedAt
@@ -589,15 +560,17 @@
               );
 
 
-            document.getElementById(
-              "updateTime"
-            ).textContent =
+            document
+              .getElementById(
+                "updateTime"
+              )
+              .textContent =
               date.toLocaleTimeString();
 
           }
 
-
         },
+
 
         function(error) {
 
@@ -606,15 +579,19 @@
           );
 
 
-          document.getElementById(
-            "firebaseStatus"
-          ).textContent =
+          document
+            .getElementById(
+              "firebaseStatus"
+            )
+            .textContent =
             "接続エラー";
 
 
-          document.getElementById(
-            "errorMessage"
-          ).textContent =
+          document
+            .getElementById(
+              "errorMessage"
+            )
+            .textContent =
             "Firebaseからデータを取得できません。";
 
         }
@@ -622,7 +599,183 @@
       );
 
 
+      // ========================================
+      // リセットボタン
+      // ========================================
+
+      const resetButton =
+        document.getElementById(
+          "resetButton"
+        );
+
+
+      const resetStatus =
+        document.getElementById(
+          "resetStatus"
+        );
+
+
+      resetButton.addEventListener(
+        "click",
+        async function() {
+
+
+          // ------------------------------------
+          // 確認
+          // ------------------------------------
+
+          const answer =
+            confirm(
+
+              "人数データをすべてリセットしますか？\n\n" +
+
+              "現在人数 → 0人\n" +
+              "入室 → 0人\n" +
+              "退出 → 0人\n\n" +
+
+              "この操作を実行します。"
+
+            );
+
+
+          if (!answer) {
+
+            return;
+
+          }
+
+
+          // ------------------------------------
+          // ボタン停止
+          // ------------------------------------
+
+          resetButton.disabled =
+            true;
+
+
+          resetStatus.textContent =
+            "リセットしています...";
+
+
+          resetStatus.style.color =
+            "white";
+
+
+          try {
+
+
+            // ==================================
+            // リセット命令をFirebaseへ
+            // ==================================
+
+            const resetRef =
+              ref(
+                db,
+                "people/reset"
+              );
+
+
+            await set(
+
+              resetRef,
+
+              {
+                command:
+                  "reset",
+
+                time:
+                  Date.now()
+              }
+
+            );
+
+
+            // ----------------------------------
+            // PC画面側も即座に0にする
+            // ----------------------------------
+
+            document
+              .getElementById(
+                "peopleCount"
+              )
+              .textContent =
+              "0";
+
+
+            document
+              .getElementById(
+                "enteredCount"
+              )
+              .textContent =
+              "0";
+
+
+            document
+              .getElementById(
+                "exitedCount"
+              )
+              .textContent =
+              "0";
+
+
+            // ----------------------------------
+            // 完了
+            // ----------------------------------
+
+            resetStatus.textContent =
+              "✅ リセットしました";
+
+
+            resetStatus.style.color =
+              "#00ff66";
+
+
+            console.log(
+              "リセット命令を送信しました"
+            );
+
+
+          }
+
+          catch (error) {
+
+            console.error(
+              "リセットエラー:",
+              error
+            );
+
+
+            resetStatus.textContent =
+              "❌ リセットに失敗しました";
+
+
+            resetStatus.style.color =
+              "#ff6666";
+
+          }
+
+
+          // ------------------------------------
+          // ボタン復活
+          // ------------------------------------
+
+          setTimeout(
+            function() {
+
+              resetButton.disabled =
+                false;
+
+            },
+            1500
+          );
+
+
+        }
+      );
+
+
     }
+
 
     catch (error) {
 
@@ -631,21 +784,24 @@
       );
 
 
-      document.getElementById(
-        "firebaseStatus"
-      ).textContent =
+      document
+        .getElementById(
+          "firebaseStatus"
+        )
+        .textContent =
         "接続エラー";
 
 
-      document.getElementById(
-        "errorMessage"
-      ).textContent =
+      document
+        .getElementById(
+          "errorMessage"
+        )
+        .textContent =
         "Firebase設定を確認してください。";
 
     }
 
   </script>
-
 
 </body>
 
