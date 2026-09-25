@@ -1,84 +1,34 @@
 let video;
 let model;
-
 let predictions = [];
 
-
-// ========================================
-// 人数
-// ========================================
-
-// カメラに現在映っている人数
 let visiblePeopleCount = 0;
-
-// 入室した人数
 let enteredCount = 0;
-
-// 退出した人数
 let exitedCount = 0;
-
-// 現在の人数
 let currentPeopleCount = 0;
-
-
-// ========================================
-// 状態
-// ========================================
 
 let modelReady = false;
 let cameraReady = false;
 let detecting = false;
 
-
-// ========================================
-// 追跡
-// ========================================
-
 let tracks = [];
-
 let nextTrackId = 1;
 
-
-// 人物が一時的に見えなくなっても
-// この時間までは追跡を維持する
 const TRACK_TIMEOUT = 2500;
-
-
-// 同じ人物と判断する距離
 const MATCH_DISTANCE = 140;
 
-
-// ========================================
-// 3エリア
-// ========================================
-
-// 画面を3つに分ける
-//
-// Zone A = 入口
-// Zone B = 中間
-// Zone C = 出口
-//
-// A → B → C = 入室
-// C → B → A = 退出
-
-
+// A・B・Cの境界
 const ZONE_A_END = 0.33;
-
 const ZONE_B_END = 0.66;
 
 
-// ========================================
-// 起動
-// ========================================
+// ==============================
+// 初期設定
+// ==============================
 
 function setup() {
 
   createCanvas(960, 720);
-
-
-  // ======================================
-  // 背面カメラ
-  // ======================================
 
   video = createCapture(
     {
@@ -87,7 +37,6 @@ function setup() {
           ideal: "environment"
         }
       },
-
       audio: false
     },
 
@@ -95,56 +44,37 @@ function setup() {
 
       cameraReady = true;
 
-      console.log(
-        "背面カメラ接続成功"
-      );
+      console.log("背面カメラ接続成功");
 
     }
   );
 
-
   video.size(960, 720);
-
   video.hide();
 
-
-  // AI読み込み
-
   loadAIModel();
-
 }
 
 
-// ========================================
-// AIモデル
-// ========================================
+// ==============================
+// AIモデル読み込み
+// ==============================
 
 async function loadAIModel() {
 
-  console.log(
-    "COCO-SSDを読み込んでいます..."
-  );
-
+  console.log("COCO-SSDを読み込んでいます...");
 
   try {
 
-    model =
-      await cocoSsd.load();
-
+    model = await cocoSsd.load();
 
     modelReady = true;
 
-
-    console.log(
-      "AIモデル読み込み完了"
-    );
-
+    console.log("AIモデル読み込み完了");
 
     detectPeople();
 
-  }
-
-  catch (error) {
+  } catch (error) {
 
     console.error(
       "AIモデル読み込みエラー:",
@@ -152,50 +82,27 @@ async function loadAIModel() {
     );
 
   }
-
 }
 
 
-// ========================================
+// ==============================
 // 人物認識
-// ========================================
+// ==============================
 
 async function detectPeople() {
 
-  if (detecting) {
+  if (detecting) return;
 
-    return;
-
-  }
-
-
-  if (
-    !modelReady ||
-    !cameraReady
-  ) {
-
-    return;
-
-  }
-
+  if (!modelReady || !cameraReady) return;
 
   detecting = true;
-
 
   try {
 
     predictions =
-      await model.detect(
-        video.elt
-      );
-
-
-    // ==================================
-    // personだけ取り出す
-    // ==================================
+      await model.detect(video.elt);
 
     let persons = [];
-
 
     for (
       let i = 0;
@@ -206,45 +113,25 @@ async function detectPeople() {
       const prediction =
         predictions[i];
 
-
       if (
         prediction.class === "person" &&
         prediction.score >= 0.50
       ) {
 
-        persons.push(
-          prediction
-        );
+        persons.push(prediction);
 
       }
 
     }
 
-
-    // カメラ内人数
-
     visiblePeopleCount =
       persons.length;
 
-
-    // ==================================
-    // 追跡
-    // ==================================
-
-    updateTracks(
-      persons
-    );
-
-
-    // ==================================
-    // Firebase
-    // ==================================
+    updateTracks(persons);
 
     sendPeopleData();
 
-  }
-
-  catch (error) {
+  } catch (error) {
 
     console.error(
       "AI認識エラー:",
@@ -253,29 +140,22 @@ async function detectPeople() {
 
   }
 
-
   detecting = false;
-
 }
 
 
-// ========================================
-// 追跡更新
-// ========================================
+// ==============================
+// 人物追跡
+// ==============================
 
 function updateTracks(persons) {
 
-  const now =
-    Date.now();
-
-
-  // ======================================
-  // 人物の中心座標
-  // ======================================
+  const now = Date.now();
 
   let detections = [];
 
 
+  // 人物の中心座標を取得
   for (
     let i = 0;
     i < persons.length;
@@ -285,40 +165,28 @@ function updateTracks(persons) {
     const bbox =
       persons[i].bbox;
 
-
     const centerX =
-      bbox[0] +
-      bbox[2] / 2;
-
+      bbox[0] + bbox[2] / 2;
 
     const centerY =
-      bbox[1] +
-      bbox[3] / 2;
-
+      bbox[1] + bbox[3] / 2;
 
     detections.push({
 
-      prediction:
-        persons[i],
+      prediction: persons[i],
 
-      x:
-        centerX,
+      x: centerX,
 
-      y:
-        centerY,
+      y: centerY,
 
-      matched:
-        false
+      matched: false
 
     });
 
   }
 
 
-  // ======================================
   // 既存人物との照合
-  // ======================================
-
   for (
     let i = 0;
     i < tracks.length;
@@ -328,10 +196,7 @@ function updateTracks(persons) {
     const track =
       tracks[i];
 
-
-    let bestDetection =
-      null;
-
+    let bestDetection = null;
 
     let bestDistance =
       MATCH_DISTANCE;
@@ -346,25 +211,15 @@ function updateTracks(persons) {
       const detection =
         detections[j];
 
-
-      if (
-        detection.matched
-      ) {
-
+      if (detection.matched)
         continue;
-
-      }
 
 
       const dx =
-        detection.x -
-        track.x;
-
+        detection.x - track.x;
 
       const dy =
-        detection.y -
-        track.y;
-
+        detection.y - track.y;
 
       const distance =
         Math.sqrt(
@@ -388,29 +243,21 @@ function updateTracks(persons) {
     }
 
 
-    // ====================================
-    // 同じ人物
-    // ====================================
-
     if (bestDetection) {
 
       bestDetection.matched =
         true;
 
 
+      // 横方向でA・B・Cを判定
       const oldZone =
-        getZone(
-          track.y
-        );
-
+        getZone(track.x);
 
       const newZone =
         getZone(
-          bestDetection.y
+          bestDetection.x
         );
 
-
-      // 座標更新
 
       track.x =
         bestDetection.x;
@@ -418,18 +265,12 @@ function updateTracks(persons) {
       track.y =
         bestDetection.y;
 
-
       track.lastSeen =
         now;
-
 
       track.prediction =
         bestDetection.prediction;
 
-
-      // ==================================
-      // エリア移動
-      // ==================================
 
       updateZoneHistory(
         track,
@@ -442,10 +283,7 @@ function updateTracks(persons) {
   }
 
 
-  // ======================================
   // 新しい人物
-  // ======================================
-
   for (
     let i = 0;
     i < detections.length;
@@ -455,89 +293,53 @@ function updateTracks(persons) {
     const detection =
       detections[i];
 
-
-    if (
-      detection.matched
-    ) {
-
+    if (detection.matched)
       continue;
-
-    }
 
 
     const initialZone =
-      getZone(
-        detection.y
-      );
+      getZone(detection.x);
 
 
     tracks.push({
 
-      id:
-        nextTrackId++,
+      id: nextTrackId++,
 
-      x:
-        detection.x,
+      x: detection.x,
 
-      y:
-        detection.y,
+      y: detection.y,
 
-      lastSeen:
-        now,
+      lastSeen: now,
 
       prediction:
         detection.prediction,
 
-
-      // 最初にいたエリア
-
       startZone:
         initialZone,
-
-
-      // 現在のエリア
 
       currentZone:
         initialZone,
 
-
-      // 通過したエリア
-
       zoneHistory:
-        [
-          initialZone
-        ],
+        [initialZone],
 
+      counted: false,
 
-      // 入退室判定済みか
-
-      counted:
-        false,
-
-
-      // 最後の判定時間
-
-      lastCountTime:
-        0
+      lastCountTime: 0
 
     });
 
   }
 
 
-  // ======================================
-  // 古い追跡を削除
-  // ======================================
-
+  // 古い人物を削除
   tracks =
     tracks.filter(
       function(track) {
 
         return (
-          now -
-          track.lastSeen
-          <
-          TRACK_TIMEOUT
+          now - track.lastSeen
+          < TRACK_TIMEOUT
         );
 
       }
@@ -546,14 +348,15 @@ function updateTracks(persons) {
 }
 
 
-// ========================================
-// エリア判定
-// ========================================
+// ==============================
+// A・B・C判定
+// 横方向バージョン
+// ==============================
 
-function getZone(y) {
+function getZone(x) {
 
   const ratio =
-    y / height;
+    x / width;
 
 
   if (
@@ -579,17 +382,15 @@ function getZone(y) {
 }
 
 
-// ========================================
-// エリア履歴更新
-// ========================================
+// ==============================
+// エリア移動
+// ==============================
 
 function updateZoneHistory(
   track,
   oldZone,
   newZone
 ) {
-
-  // 同じエリアなら何もしない
 
   if (
     oldZone === newZone
@@ -610,16 +411,10 @@ function updateZoneHistory(
   );
 
 
-  // ======================================
-  // 履歴に追加
-  // ======================================
-
   track.zoneHistory.push(
     newZone
   );
 
-
-  // 履歴を最大10個まで
 
   if (
     track.zoneHistory.length > 10
@@ -634,59 +429,30 @@ function updateZoneHistory(
     newZone;
 
 
-  // ======================================
-  // 入室判定
-  // ======================================
+  checkEntry(track);
 
-  checkEntry(
-    track
-  );
-
-
-  // ======================================
-  // 退出判定
-  // ======================================
-
-  checkExit(
-    track
-  );
+  checkExit(track);
 
 }
 
 
-// ========================================
+// ==============================
 // 入室判定
-// ========================================
-//
 // A → B → C
-//
-// を通ったら入室
-// ========================================
+// ==============================
 
 function checkEntry(track) {
 
-  if (
-    track.counted
-  ) {
-
+  if (track.counted)
     return;
-
-  }
 
 
   const history =
     track.zoneHistory;
 
 
-  // 最後の3つを見る
-
-  if (
-    history.length < 3
-  ) {
-
+  if (history.length < 3)
     return;
-
-  }
 
 
   const n =
@@ -703,8 +469,6 @@ function checkEntry(track) {
     history[n - 1];
 
 
-  // A → B → C
-
   if (
     a === "A" &&
     b === "B" &&
@@ -715,13 +479,9 @@ function checkEntry(track) {
       Date.now();
 
 
-    // 二重判定防止
-
     if (
-      now -
-      track.lastCountTime
-      <
-      2000
+      now - track.lastCountTime
+      < 2000
     ) {
 
       return;
@@ -736,7 +496,6 @@ function checkEntry(track) {
 
     track.counted =
       true;
-
 
     track.lastCountTime =
       now;
@@ -772,37 +531,23 @@ function checkEntry(track) {
 }
 
 
-// ========================================
+// ==============================
 // 退出判定
-// ========================================
-//
 // C → B → A
-//
-// を通ったら退出
-// ========================================
+// ==============================
 
 function checkExit(track) {
 
-  if (
-    track.counted
-  ) {
-
+  if (track.counted)
     return;
-
-  }
 
 
   const history =
     track.zoneHistory;
 
 
-  if (
-    history.length < 3
-  ) {
-
+  if (history.length < 3)
     return;
-
-  }
 
 
   const n =
@@ -819,8 +564,6 @@ function checkExit(track) {
     history[n - 1];
 
 
-  // C → B → A
-
   if (
     a === "C" &&
     b === "B" &&
@@ -832,10 +575,8 @@ function checkExit(track) {
 
 
     if (
-      now -
-      track.lastCountTime
-      <
-      2000
+      now - track.lastCountTime
+      < 2000
     ) {
 
       return;
@@ -855,7 +596,6 @@ function checkExit(track) {
 
     track.counted =
       true;
-
 
     track.lastCountTime =
       now;
@@ -891,15 +631,13 @@ function checkExit(track) {
 }
 
 
-// ========================================
+// ==============================
 // Firebase送信
-// ========================================
+// ==============================
 
 async function sendPeopleData() {
 
   try {
-
-    // Firebase準備待ち
 
     if (
       window.firebaseReady
@@ -930,45 +668,29 @@ async function sendPeopleData() {
 
     const data = {
 
-      // 入退室から計算した人数
-
       peopleCount:
         currentPeopleCount,
-
-
-      // 現在カメラに映っている人数
 
       visiblePeopleCount:
         visiblePeopleCount,
 
-
-      // 累計入室
-
       enteredCount:
         enteredCount,
-
-
-      // 累計退出
 
       exitedCount:
         exitedCount,
 
-
       cameraReady:
         cameraReady,
-
 
       modelReady:
         modelReady,
 
-
       camera:
         "tablet",
 
-
       updatedAt:
         Date.now(),
-
 
       time:
         new Date()
@@ -988,9 +710,8 @@ async function sendPeopleData() {
       data
     );
 
-  }
 
-  catch (error) {
+  } catch (error) {
 
     console.error(
       "Firebase送信エラー:",
@@ -1002,19 +723,16 @@ async function sendPeopleData() {
 }
 
 
-// ========================================
-// 画面
-// ========================================
+// ==============================
+// 画面描画
+// ==============================
 
 function draw() {
 
   background(20);
 
 
-  // ======================================
   // カメラ映像
-  // ======================================
-
   if (cameraReady) {
 
     image(
@@ -1025,9 +743,7 @@ function draw() {
       height
     );
 
-  }
-
-  else {
+  } else {
 
     fill(255);
 
@@ -1047,10 +763,7 @@ function draw() {
   }
 
 
-  // ======================================
   // 人物枠
-  // ======================================
-
   for (
     let i = 0;
     i < predictions.length;
@@ -1075,31 +788,14 @@ function draw() {
   }
 
 
-  // ======================================
-  // 3エリア表示
-  // ======================================
-
   drawZones();
 
-
-  // ======================================
-  // 人数
-  // ======================================
-
   drawPeopleCount();
-
-
-  // ======================================
-  // 状態
-  // ======================================
 
   drawStatus();
 
 
-  // ======================================
-  // 次の認識
-  // ======================================
-
+  // AI認識を繰り返す
   if (
     modelReady &&
     cameraReady &&
@@ -1113,15 +809,11 @@ function draw() {
 }
 
 
-// ========================================
-// 3エリア表示
-// ========================================
+// ==============================
+// 横向きA・B・C表示
+// ==============================
 
 function drawZones() {
-
-  // --------------------------------------
-  // AとBの境界
-  // --------------------------------------
 
   stroke(
     255,
@@ -1131,32 +823,27 @@ function drawZones() {
 
   strokeWeight(3);
 
+
+  // AとBの境界
   line(
+    width * ZONE_A_END,
     0,
-    height * ZONE_A_END,
-    width,
-    height * ZONE_A_END
+    width * ZONE_A_END,
+    height
   );
 
 
-  // --------------------------------------
   // BとCの境界
-  // --------------------------------------
-
   line(
+    width * ZONE_B_END,
     0,
-    height * ZONE_B_END,
-    width,
-    height * ZONE_B_END
+    width * ZONE_B_END,
+    height
   );
 
 
   noStroke();
 
-
-  // ======================================
-  // エリア名
-  // ======================================
 
   fill(
     255,
@@ -1164,56 +851,62 @@ function drawZones() {
     0
   );
 
+
   textAlign(
     CENTER,
     CENTER
   );
 
 
-  textSize(24);
+  textSize(28);
 
+
+  // A
   text(
     "A：入口エリア",
-    width / 2,
-    height * 0.16
+    width * 0.165,
+    height * 0.18
   );
 
 
+  // B
   text(
     "B：中間エリア",
-    width / 2,
-    height * 0.50
+    width * 0.50,
+    height * 0.18
   );
 
 
+  // C
   text(
     "C：出口エリア",
-    width / 2,
-    height * 0.83
+    width * 0.83,
+    height * 0.18
   );
 
 
-  textSize(16);
+  textSize(20);
+
 
   text(
     "A → B → C = 入室",
-    width / 2,
-    height * 0.29
+    width * 0.50,
+    height - 70
   );
 
 
   text(
     "C → B → A = 退出",
-    width / 2,
-    height * 0.70
+    width * 0.50,
+    height - 35
   );
 
 }
 
 
-// ========================================
+// ==============================
 // 人物枠
-// ========================================
+// ==============================
 
 function drawPersonBox(
   prediction
@@ -1246,6 +939,7 @@ function drawPersonBox(
 
   strokeWeight(3);
 
+
   rect(
     x,
     y,
@@ -1267,6 +961,7 @@ function drawPersonBox(
     180
   );
 
+
   rect(
     x,
     y - 30,
@@ -1277,12 +972,14 @@ function drawPersonBox(
 
   fill(255);
 
+
   textAlign(
     LEFT,
     CENTER
   );
 
   textSize(15);
+
 
   text(
     "Person " +
@@ -1295,13 +992,14 @@ function drawPersonBox(
 }
 
 
-// ========================================
+// ==============================
 // 人数表示
-// ========================================
+// ==============================
 
 function drawPeopleCount() {
 
   noStroke();
+
 
   fill(
     0,
@@ -1320,12 +1018,11 @@ function drawPeopleCount() {
 
   fill(255);
 
-  textAlign(
-    LEFT
-  );
+  textAlign(LEFT);
 
 
   textSize(22);
+
 
   text(
     "入退室管理",
@@ -1335,6 +1032,7 @@ function drawPeopleCount() {
 
 
   textSize(36);
+
 
   text(
     "現在：" +
@@ -1346,6 +1044,7 @@ function drawPeopleCount() {
 
 
   textSize(20);
+
 
   text(
     "入室：" +
@@ -1367,6 +1066,7 @@ function drawPeopleCount() {
 
   textSize(16);
 
+
   text(
     "カメラ内：" +
     visiblePeopleCount +
@@ -1378,19 +1078,18 @@ function drawPeopleCount() {
 }
 
 
-// ========================================
+// ==============================
 // 状態表示
-// ========================================
+// ==============================
 
 function drawStatus() {
 
-  textAlign(
-    RIGHT
-  );
+  textAlign(RIGHT);
 
   textSize(16);
 
 
+  // カメラ
   if (cameraReady) {
 
     fill(
@@ -1405,9 +1104,7 @@ function drawStatus() {
       30
     );
 
-  }
-
-  else {
+  } else {
 
     fill(
       255,
@@ -1424,6 +1121,7 @@ function drawStatus() {
   }
 
 
+  // AI
   if (modelReady) {
 
     fill(
@@ -1438,9 +1136,7 @@ function drawStatus() {
       55
     );
 
-  }
-
-  else {
+  } else {
 
     fill(255);
 
@@ -1453,9 +1149,8 @@ function drawStatus() {
   }
 
 
-  if (
-    window.firebaseDB
-  ) {
+  // Firebase
+  if (window.firebaseDB) {
 
     fill(
       0,
@@ -1469,9 +1164,7 @@ function drawStatus() {
       80
     );
 
-  }
-
-  else {
+  } else {
 
     fill(
       255,
