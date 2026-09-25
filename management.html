@@ -1,808 +1,1971 @@
-<!DOCTYPE html>
-<html lang="ja">
-
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <title>人数管理画面</title>
-
-  <style>
-
-    body {
-      margin: 0;
-      background: #111;
-      color: white;
-      font-family: sans-serif;
-    }
-
-    .container {
-      max-width: 1000px;
-      margin: auto;
-      padding: 30px;
-      text-align: center;
-    }
-
-    h1 {
-      font-size: 40px;
-      margin-bottom: 40px;
-    }
-
-    .main-count {
-      background: #222;
-      border-radius: 20px;
-      padding: 40px;
-      margin-bottom: 25px;
-    }
-
-    .main-count-title {
-      font-size: 28px;
-    }
-
-    #peopleCount {
-      font-size: 110px;
-      font-weight: bold;
-    }
-
-    .unit {
-      font-size: 40px;
-    }
-
-    .cards {
-      display: flex;
-      gap: 20px;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
-    .card {
-      background: #222;
-      border-radius: 15px;
-      padding: 30px;
-      min-width: 220px;
-    }
-
-    .card-title {
-      font-size: 22px;
-    }
+// ======================================================
+// AI人数管理システム
+// タブレット横画面 完成版
+//
+// A → B → C = 入室
+// C → B → A = 退出
+//
+// COCO-SSD
+// Firebase
+// リセット対応
+// ======================================================
 
-    .number {
-      font-size: 60px;
-      font-weight: bold;
-      margin-top: 15px;
-    }
 
-    .visible {
-      color: #aaa;
-    }
+// ======================================================
+// カメラ・AI
+// ======================================================
 
-    .status {
-      margin-top: 30px;
-      background: #222;
-      border-radius: 15px;
-      padding: 25px;
-      text-align: left;
-      font-size: 20px;
-    }
+let video;
 
-    .status div {
-      margin: 12px 0;
-    }
+let model;
 
-    .ok {
-      color: #00ff66;
-    }
+let predictions = [];
 
-    .ng {
-      color: #ff6666;
-    }
 
-    #errorMessage {
-      color: #ff6666;
-      margin-top: 20px;
-    }
+// ======================================================
+// 人数
+// ======================================================
 
-    /* ==========================================
-       リセットボタン
-       ========================================== */
+let visiblePeopleCount = 0;
 
-    .reset-area {
-      margin-top: 35px;
-    }
+let enteredCount = 0;
 
-    #resetButton {
-      border: none;
-      border-radius: 12px;
+let exitedCount = 0;
 
-      background: #d32f2f;
-      color: white;
+let currentPeopleCount = 0;
 
-      font-size: 22px;
-      font-weight: bold;
 
-      padding: 18px 45px;
+// ======================================================
+// 状態
+// ======================================================
 
-      cursor: pointer;
+let modelReady = false;
 
-      transition: 0.2s;
-    }
+let cameraReady = false;
 
-    #resetButton:hover {
-      background: #f44336;
-      transform: scale(1.03);
-    }
+let detecting = false;
 
-    #resetButton:active {
-      transform: scale(0.98);
-    }
 
-    #resetButton:disabled {
-      background: #555;
-      cursor: not-allowed;
-    }
+// ======================================================
+// 人物追跡
+// ======================================================
 
-    #resetStatus {
-      margin-top: 15px;
-      font-size: 18px;
-    }
+let tracks = [];
 
-  </style>
+let nextTrackId = 1;
 
-</head>
 
+const TRACK_TIMEOUT = 2500;
 
-<body>
+const MATCH_DISTANCE = 140;
 
-  <div class="container">
 
-    <h1>📊 人数管理システム</h1>
+// ======================================================
+// A・B・C
+// ======================================================
 
+const ZONE_A_END = 0.33;
 
-    <!-- ========================================
-         現在人数
-         ======================================== -->
+const ZONE_B_END = 0.66;
 
-    <div class="main-count">
 
-      <div class="main-count-title">
-        現在の人数
-      </div>
+// ======================================================
+// リセット
+// ======================================================
 
-      <div>
+let lastResetTime = 0;
 
-        <span id="peopleCount">
-          0
-        </span>
 
-        <span class="unit">
-          人
-        </span>
+// ======================================================
+// setup
+// ======================================================
 
-      </div>
+function setup() {
 
-    </div>
+  updateCanvasSize();
 
 
-    <!-- ========================================
-         入室・退出・カメラ内人数
-         ======================================== -->
+  const canvas =
+    createCanvas(
+      canvasWidth,
+      canvasHeight
+    );
 
-    <div class="cards">
 
+  canvas.parent("app");
 
-      <div class="card">
 
-        <div class="card-title">
-          入室
-        </div>
+  // ==============================================
+  // 背面カメラ
+  // ==============================================
 
-        <div
-          id="enteredCount"
-          class="number"
-        >
-          0
-        </div>
+  video =
+    createCapture(
 
-        <div>
-          人
-        </div>
+      {
+        video: {
 
-      </div>
+          facingMode: {
+            ideal: "environment"
+          },
 
+          width: {
+            ideal: 1280
+          },
 
-      <div class="card">
-
-        <div class="card-title">
-          退出
-        </div>
-
-        <div
-          id="exitedCount"
-          class="number"
-        >
-          0
-        </div>
-
-        <div>
-          人
-        </div>
-
-      </div>
-
-
-      <div class="card">
-
-        <div class="card-title">
-          現在カメラに映っている人数
-        </div>
-
-        <div
-          id="visiblePeopleCount"
-          class="number visible"
-        >
-          0
-        </div>
-
-        <div>
-          人
-        </div>
-
-      </div>
-
-
-    </div>
-
-
-    <!-- ========================================
-         状態
-         ======================================== -->
-
-    <div class="status">
-
-      <div>
-        Firebase：
-        <span
-          id="firebaseStatus"
-          class="ok"
-        >
-          接続中...
-        </span>
-      </div>
-
-
-      <div>
-        カメラ：
-        <span id="cameraStatus">
-          確認中...
-        </span>
-      </div>
-
-
-      <div>
-        AI：
-        <span id="aiStatus">
-          確認中...
-        </span>
-      </div>
-
-
-      <div>
-        最終更新：
-        <span id="updateTime">
-          --
-        </span>
-      </div>
-
-    </div>
-
-
-    <!-- ========================================
-         リセット
-         ======================================== -->
-
-    <div class="reset-area">
-
-      <button
-        id="resetButton"
-      >
-        🔄 データをリセット
-      </button>
-
-      <div id="resetStatus"></div>
-
-    </div>
-
-
-    <div id="errorMessage"></div>
-
-  </div>
-
-
-  <!-- ==========================================
-       Firebase
-       ========================================== -->
-
-  <script type="module">
-
-    import {
-      initializeApp
-    }
-    from
-      "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-
-
-    import {
-      getDatabase,
-      ref,
-      onValue,
-      set
-    }
-    from
-      "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
-
-
-    // ==========================================
-    // Firebase設定
-    // ==========================================
-
-    const firebaseConfig = {
-
-      apiKey:
-        "AIzaSyAslBm8rtnbcpuMTMHHJbErpJoMp_im-fg",
-
-      authDomain:
-        "aininnzuukannri-136ec.firebaseapp.com",
-
-      databaseURL:
-        "https://aininnzuukannri-136ec-default-rtdb.firebaseio.com",
-
-      projectId:
-        "aininnzuukannri-136ec",
-
-      storageBucket:
-        "aininnzuukannri-136ec.firebasestorage.app",
-
-      messagingSenderId:
-        "761746001349",
-
-      appId:
-        "1:761746001349:web:f01d89e616dfe5689ccfac",
-
-      measurementId:
-        "G-D053Q0CVGR"
-
-    };
-
-
-    // ==========================================
-    // Firebase開始
-    // ==========================================
-
-    try {
-
-      const app =
-        initializeApp(
-          firebaseConfig
-        );
-
-
-      const db =
-        getDatabase(
-          app
-        );
-
-
-      document
-        .getElementById(
-          "firebaseStatus"
-        )
-        .textContent =
-        "接続OK";
-
-
-      // ========================================
-      // 人数データ
-      // ========================================
-
-      const peopleRef =
-        ref(
-          db,
-          "people/current"
-        );
-
-
-      onValue(
-
-        peopleRef,
-
-        function(snapshot) {
-
-          const data =
-            snapshot.val();
-
-
-          console.log(
-            "受信データ:",
-            data
-          );
-
-
-          if (!data) {
-            return;
-          }
-
-
-          // ------------------------------------
-          // 現在人数
-          // ------------------------------------
-
-          document
-            .getElementById(
-              "peopleCount"
-            )
-            .textContent =
-            data.peopleCount ?? 0;
-
-
-          // ------------------------------------
-          // 入室
-          // ------------------------------------
-
-          document
-            .getElementById(
-              "enteredCount"
-            )
-            .textContent =
-            data.enteredCount ?? 0;
-
-
-          // ------------------------------------
-          // 退出
-          // ------------------------------------
-
-          document
-            .getElementById(
-              "exitedCount"
-            )
-            .textContent =
-            data.exitedCount ?? 0;
-
-
-          // ------------------------------------
-          // カメラ内
-          // ------------------------------------
-
-          document
-            .getElementById(
-              "visiblePeopleCount"
-            )
-            .textContent =
-            data.visiblePeopleCount ?? 0;
-
-
-          // ------------------------------------
-          // カメラ状態
-          // ------------------------------------
-
-          const cameraStatus =
-            document.getElementById(
-              "cameraStatus"
-            );
-
-
-          if (
-            data.cameraReady
-          ) {
-
-            cameraStatus.textContent =
-              "接続OK";
-
-            cameraStatus.className =
-              "ok";
-
-          }
-
-          else {
-
-            cameraStatus.textContent =
-              "接続待ち";
-
-            cameraStatus.className =
-              "ng";
-
-          }
-
-
-          // ------------------------------------
-          // AI状態
-          // ------------------------------------
-
-          const aiStatus =
-            document.getElementById(
-              "aiStatus"
-            );
-
-
-          if (
-            data.modelReady
-          ) {
-
-            aiStatus.textContent =
-              "稼働中";
-
-            aiStatus.className =
-              "ok";
-
-          }
-
-          else {
-
-            aiStatus.textContent =
-              "読み込み中";
-
-            aiStatus.className =
-              "ng";
-
-          }
-
-
-          // ------------------------------------
-          // 更新時間
-          // ------------------------------------
-
-          if (
-            data.updatedAt
-          ) {
-
-            const date =
-              new Date(
-                data.updatedAt
-              );
-
-
-            document
-              .getElementById(
-                "updateTime"
-              )
-              .textContent =
-              date.toLocaleTimeString();
-
+          height: {
+            ideal: 720
           }
 
         },
 
+        audio: false
 
-        function(error) {
+      },
 
-          console.error(
-            error
-          );
+      function () {
 
-
-          document
-            .getElementById(
-              "firebaseStatus"
-            )
-            .textContent =
-            "接続エラー";
+        cameraReady = true;
 
 
-          document
-            .getElementById(
-              "errorMessage"
-            )
-            .textContent =
-            "Firebaseからデータを取得できません。";
-
-        }
-
-      );
-
-
-      // ========================================
-      // リセットボタン
-      // ========================================
-
-      const resetButton =
-        document.getElementById(
-          "resetButton"
+        console.log(
+          "背面カメラ接続成功"
         );
 
 
-      const resetStatus =
-        document.getElementById(
-          "resetStatus"
-        );
+        sendPeopleData();
+
+      }
+
+    );
 
 
-      resetButton.addEventListener(
-        "click",
-        async function() {
+  video.hide();
 
 
-          // ------------------------------------
-          // 確認
-          // ------------------------------------
+  // ==============================================
+  // AI
+  // ==============================================
 
-          const answer =
-            confirm(
+  loadAIModel();
 
-              "人数データをすべてリセットしますか？\n\n" +
-
-              "現在人数 → 0人\n" +
-              "入室 → 0人\n" +
-              "退出 → 0人\n\n" +
-
-              "この操作を実行します。"
-
-            );
+}
 
 
-          if (!answer) {
+// ======================================================
+// キャンバスサイズ
+// ======================================================
 
-            return;
+let canvasWidth = 1280;
 
-          }
-
-
-          // ------------------------------------
-          // ボタン停止
-          // ------------------------------------
-
-          resetButton.disabled =
-            true;
+let canvasHeight = 720;
 
 
-          resetStatus.textContent =
-            "リセットしています...";
+function updateCanvasSize() {
+
+  if (
+    windowWidth >= windowHeight
+  ) {
+
+    canvasWidth =
+      windowWidth;
+
+    canvasHeight =
+      windowHeight;
+
+  } else {
+
+    canvasWidth =
+      windowWidth;
+
+    canvasHeight =
+      windowWidth *
+      9 / 16;
+
+  }
+
+}
 
 
-          resetStatus.style.color =
-            "white";
+// ======================================================
+// 画面サイズ変更
+// ======================================================
+
+function windowResized() {
+
+  updateCanvasSize();
 
 
-          try {
+  resizeCanvas(
+    canvasWidth,
+    canvasHeight
+  );
+
+}
 
 
-            // ==================================
-            // リセット命令をFirebaseへ
-            // ==================================
+// ======================================================
+// AIモデル読み込み
+// ======================================================
 
-            const resetRef =
-              ref(
-                db,
-                "people/reset"
-              );
+async function loadAIModel() {
 
-
-            await set(
-
-              resetRef,
-
-              {
-                command:
-                  "reset",
-
-                time:
-                  Date.now()
-              }
-
-            );
+  console.log(
+    "COCO-SSDを読み込んでいます..."
+  );
 
 
-            // ----------------------------------
-            // PC画面側も即座に0にする
-            // ----------------------------------
+  try {
 
-            document
-              .getElementById(
-                "peopleCount"
-              )
-              .textContent =
-              "0";
+    model =
+      await cocoSsd.load();
 
 
-            document
-              .getElementById(
-                "enteredCount"
-              )
-              .textContent =
-              "0";
+    modelReady = true;
 
 
-            document
-              .getElementById(
-                "exitedCount"
-              )
-              .textContent =
-              "0";
+    console.log(
+      "AIモデル読み込み完了"
+    );
 
 
-            // ----------------------------------
-            // 完了
-            // ----------------------------------
-
-            resetStatus.textContent =
-              "✅ リセットしました";
+    sendPeopleData();
 
 
-            resetStatus.style.color =
-              "#00ff66";
+    detectPeople();
 
 
-            console.log(
-              "リセット命令を送信しました"
-            );
+  } catch (error) {
+
+    console.error(
+      "AIモデル読み込みエラー:",
+      error
+    );
+
+  }
+
+}
 
 
-          }
+// ======================================================
+// 人物認識
+// ======================================================
 
-          catch (error) {
+async function detectPeople() {
 
-            console.error(
-              "リセットエラー:",
-              error
-            );
+  if (
+    detecting
+  ) {
 
+    return;
 
-            resetStatus.textContent =
-              "❌ リセットに失敗しました";
-
-
-            resetStatus.style.color =
-              "#ff6666";
-
-          }
+  }
 
 
-          // ------------------------------------
-          // ボタン復活
-          // ------------------------------------
+  if (
+    !modelReady ||
+    !cameraReady
+  ) {
 
-          setTimeout(
-            function() {
+    return;
 
-              resetButton.disabled =
-                false;
-
-            },
-            1500
-          );
+  }
 
 
-        }
+  detecting = true;
+
+
+  try {
+
+    predictions =
+      await model.detect(
+        video.elt
       );
 
+
+    let persons = [];
+
+
+    for (
+      let i = 0;
+      i < predictions.length;
+      i++
+    ) {
+
+      const prediction =
+        predictions[i];
+
+
+      if (
+
+        prediction.class ===
+        "person"
+
+        &&
+
+        prediction.score >=
+        0.50
+
+      ) {
+
+        persons.push(
+          prediction
+        );
+
+      }
 
     }
 
 
-    catch (error) {
-
-      console.error(
-        error
-      );
+    visiblePeopleCount =
+      persons.length;
 
 
-      document
-        .getElementById(
-          "firebaseStatus"
-        )
-        .textContent =
-        "接続エラー";
+    updateTracks(
+      persons
+    );
 
 
-      document
-        .getElementById(
-          "errorMessage"
-        )
-        .textContent =
-        "Firebase設定を確認してください。";
+    sendPeopleData();
+
+
+  } catch (error) {
+
+    console.error(
+      "AI認識エラー:",
+      error
+    );
+
+  }
+
+
+  detecting = false;
+
+}
+
+
+// ======================================================
+// 人物追跡
+// ======================================================
+
+function updateTracks(
+  persons
+) {
+
+  const now =
+    Date.now();
+
+
+  let detections = [];
+
+
+  // ==============================================
+  // 検出位置
+  // ==============================================
+
+  for (
+    let i = 0;
+    i < persons.length;
+    i++
+  ) {
+
+    const bbox =
+      persons[i].bbox;
+
+
+    const centerX =
+      bbox[0] +
+      bbox[2] / 2;
+
+
+    const centerY =
+      bbox[1] +
+      bbox[3] / 2;
+
+
+    detections.push({
+
+      prediction:
+        persons[i],
+
+      x:
+        centerX,
+
+      y:
+        centerY,
+
+      matched:
+        false
+
+    });
+
+  }
+
+
+  // ==============================================
+  // 既存人物との照合
+  // ==============================================
+
+  for (
+    let i = 0;
+    i < tracks.length;
+    i++
+  ) {
+
+    const track =
+      tracks[i];
+
+
+    let bestDetection =
+      null;
+
+
+    let bestDistance =
+      MATCH_DISTANCE;
+
+
+    for (
+      let j = 0;
+      j < detections.length;
+      j++
+    ) {
+
+      const detection =
+        detections[j];
+
+
+      if (
+        detection.matched
+      ) {
+
+        continue;
+
+      }
+
+
+      const dx =
+        detection.x -
+        track.x;
+
+
+      const dy =
+        detection.y -
+        track.y;
+
+
+      const distance =
+        Math.sqrt(
+          dx * dx +
+          dy * dy
+        );
+
+
+      if (
+        distance <
+        bestDistance
+      ) {
+
+        bestDistance =
+          distance;
+
+
+        bestDetection =
+          detection;
+
+      }
 
     }
 
-  </script>
 
-</body>
+    if (
+      bestDetection
+    ) {
 
-</html>
+      bestDetection.matched =
+        true;
+
+
+      const oldZone =
+        getZone(
+          track.x
+        );
+
+
+      const newZone =
+        getZone(
+          bestDetection.x
+        );
+
+
+      track.x =
+        bestDetection.x;
+
+
+      track.y =
+        bestDetection.y;
+
+
+      track.lastSeen =
+        now;
+
+
+      track.prediction =
+        bestDetection.prediction;
+
+
+      updateZoneHistory(
+
+        track,
+
+        oldZone,
+
+        newZone
+
+      );
+
+    }
+
+  }
+
+
+  // ==============================================
+  // 新しい人物
+  // ==============================================
+
+  for (
+    let i = 0;
+    i < detections.length;
+    i++
+  ) {
+
+    const detection =
+      detections[i];
+
+
+    if (
+      detection.matched
+    ) {
+
+      continue;
+
+    }
+
+
+    const initialZone =
+      getZone(
+        detection.x
+      );
+
+
+    tracks.push({
+
+      id:
+        nextTrackId++,
+
+      x:
+        detection.x,
+
+      y:
+        detection.y,
+
+      lastSeen:
+        now,
+
+      prediction:
+        detection.prediction,
+
+      currentZone:
+        initialZone,
+
+      zoneHistory:
+        [initialZone],
+
+      inside:
+        false,
+
+      entryProgress:
+        0,
+
+      exitProgress:
+        0,
+
+      lastCountTime:
+        0
+
+    });
+
+  }
+
+
+  // ==============================================
+  // 古い人物を削除
+  // ==============================================
+
+  tracks =
+    tracks.filter(
+      function (track) {
+
+        return (
+
+          now -
+          track.lastSeen
+
+          <
+
+          TRACK_TIMEOUT
+
+        );
+
+      }
+    );
+
+}
+
+
+// ======================================================
+// A/B/C判定
+// ======================================================
+
+function getZone(
+  x
+) {
+
+  const ratio =
+    x / 960;
+
+
+  if (
+    ratio < ZONE_A_END
+  ) {
+
+    return "A";
+
+  }
+
+
+  if (
+    ratio < ZONE_B_END
+  ) {
+
+    return "B";
+
+  }
+
+
+  return "C";
+
+}
+
+
+// ======================================================
+// ゾーン履歴
+// ======================================================
+
+function updateZoneHistory(
+
+  track,
+
+  oldZone,
+
+  newZone
+
+) {
+
+  if (
+    oldZone === newZone
+  ) {
+
+    return;
+
+  }
+
+
+  console.log(
+
+    "人物",
+
+    track.id,
+
+    ":",
+
+    oldZone,
+
+    "→",
+
+    newZone
+
+  );
+
+
+  track.zoneHistory.push(
+    newZone
+  );
+
+
+  if (
+    track.zoneHistory.length > 10
+  ) {
+
+    track.zoneHistory.shift();
+
+  }
+
+
+  track.currentZone =
+    newZone;
+
+
+  checkEntry(
+    track
+  );
+
+
+  checkExit(
+    track
+  );
+
+}
+
+
+// ======================================================
+// 入室
+// A → B → C
+// ======================================================
+
+function checkEntry(
+  track
+) {
+
+  if (
+    track.inside
+  ) {
+
+    return;
+
+  }
+
+
+  const history =
+    track.zoneHistory;
+
+
+  if (
+    history.length < 2
+  ) {
+
+    return;
+
+  }
+
+
+  const n =
+    history.length;
+
+
+  const previous =
+    history[n - 2];
+
+
+  const current =
+    history[n - 1];
+
+
+  // A → B
+
+  if (
+
+    previous === "A"
+
+    &&
+
+    current === "B"
+
+  ) {
+
+    track.entryProgress =
+      1;
+
+
+    console.log(
+      "人物",
+      track.id,
+      "A→B 入室準備"
+    );
+
+  }
+
+
+  // B → C
+
+  if (
+
+    previous === "B"
+
+    &&
+
+    current === "C"
+
+    &&
+
+    track.entryProgress === 1
+
+  ) {
+
+    const now =
+      Date.now();
+
+
+    if (
+
+      now -
+      track.lastCountTime
+      < 2000
+
+    ) {
+
+      return;
+
+    }
+
+
+    enteredCount++;
+
+
+    currentPeopleCount =
+      currentPeopleCount + 1;
+
+
+    track.inside =
+      true;
+
+
+    track.entryProgress =
+      0;
+
+
+    track.lastCountTime =
+      now;
+
+
+    console.log(
+      "入室を検出"
+    );
+
+
+    console.log(
+      "人物ID:",
+      track.id
+    );
+
+
+    console.log(
+      "現在人数:",
+      currentPeopleCount
+    );
+
+
+    sendPeopleData();
+
+  }
+
+}
+
+
+// ======================================================
+// 退出
+// C → B → A
+// ======================================================
+
+function checkExit(
+  track
+) {
+
+  if (
+    !track.inside
+  ) {
+
+    return;
+
+  }
+
+
+  const history =
+    track.zoneHistory;
+
+
+  if (
+    history.length < 2
+  ) {
+
+    return;
+
+  }
+
+
+  const n =
+    history.length;
+
+
+  const previous =
+    history[n - 2];
+
+
+  const current =
+    history[n - 1];
+
+
+  // C → B
+
+  if (
+
+    previous === "C"
+
+    &&
+
+    current === "B"
+
+  ) {
+
+    track.exitProgress =
+      1;
+
+
+    console.log(
+      "人物",
+      track.id,
+      "C→B 退出準備"
+    );
+
+  }
+
+
+  // B → A
+
+  if (
+
+    previous === "B"
+
+    &&
+
+    current === "A"
+
+    &&
+
+    track.exitProgress === 1
+
+  ) {
+
+    const now =
+      Date.now();
+
+
+    if (
+
+      now -
+      track.lastCountTime
+      < 2000
+
+    ) {
+
+      return;
+
+    }
+
+
+    exitedCount++;
+
+
+    currentPeopleCount =
+      Math.max(
+        0,
+        currentPeopleCount - 1
+      );
+
+
+    track.inside =
+      false;
+
+
+    track.exitProgress =
+      0;
+
+
+    track.lastCountTime =
+      now;
+
+
+    console.log(
+      "退出を検出"
+    );
+
+
+    console.log(
+      "人物ID:",
+      track.id
+    );
+
+
+    console.log(
+      "現在人数:",
+      currentPeopleCount
+    );
+
+
+    sendPeopleData();
+
+  }
+
+}
+
+
+// ======================================================
+// Firebase送信
+// ======================================================
+
+async function sendPeopleData() {
+
+  try {
+
+    if (
+      window.firebaseReady
+    ) {
+
+      await window.firebaseReady;
+
+    }
+
+
+    if (
+
+      !window.firebaseDB
+
+      ||
+
+      !window.firebaseRef
+
+      ||
+
+      !window.firebaseSet
+
+    ) {
+
+      return;
+
+    }
+
+
+    const peopleRef =
+      window.firebaseRef(
+
+        window.firebaseDB,
+
+        "people/current"
+
+      );
+
+
+    const data = {
+
+      peopleCount:
+        currentPeopleCount,
+
+      visiblePeopleCount:
+        visiblePeopleCount,
+
+      enteredCount:
+        enteredCount,
+
+      exitedCount:
+        exitedCount,
+
+      cameraReady:
+        cameraReady,
+
+      modelReady:
+        modelReady,
+
+      camera:
+        "tablet",
+
+      orientation:
+        "landscape",
+
+      updatedAt:
+        Date.now(),
+
+      time:
+        new Date()
+          .toLocaleTimeString()
+
+    };
+
+
+    await window.firebaseSet(
+
+      peopleRef,
+
+      data
+
+    );
+
+
+    console.log(
+      "Firebase送信:",
+      data
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "Firebase送信エラー:",
+      error
+    );
+
+  }
+
+}
+
+
+// ======================================================
+// リセット
+// ======================================================
+
+function resetSystem() {
+
+  console.log(
+    "=============================="
+  );
+
+  console.log(
+    "リセット命令を受信"
+  );
+
+  console.log(
+    "=============================="
+  );
+
+
+  // ==============================================
+  // 人数を0
+  // ==============================================
+
+  visiblePeopleCount =
+    0;
+
+
+  enteredCount =
+    0;
+
+
+  exitedCount =
+    0;
+
+
+  currentPeopleCount =
+    0;
+
+
+  // ==============================================
+  // 人物追跡を完全リセット
+  // ==============================================
+
+  tracks =
+    [];
+
+
+  nextTrackId =
+    1;
+
+
+  // ==============================================
+  // AI認識結果
+  // ==============================================
+
+  predictions =
+    [];
+
+
+  // ==============================================
+  // Firebaseへ0を送信
+  // ==============================================
+
+  sendPeopleData();
+
+
+  console.log(
+    "リセット完了"
+  );
+
+}
+
+
+// ======================================================
+// draw
+// ======================================================
+
+function draw() {
+
+  background(20);
+
+
+  // ==============================================
+  // カメラ
+  // ==============================================
+
+  if (
+    cameraReady
+  ) {
+
+    drawCamera();
+
+  }
+
+  else {
+
+    fill(255);
+
+
+    textAlign(
+      CENTER,
+      CENTER
+    );
+
+
+    textSize(28);
+
+
+    text(
+      "背面カメラを起動しています...",
+      width / 2,
+      height / 2
+    );
+
+  }
+
+
+  // ==============================================
+  // 人物枠
+  // ==============================================
+
+  for (
+    let i = 0;
+    i < predictions.length;
+    i++
+  ) {
+
+    const prediction =
+      predictions[i];
+
+
+    if (
+
+      prediction.class ===
+      "person"
+
+      &&
+
+      prediction.score >=
+      0.50
+
+    ) {
+
+      drawPersonBox(
+        prediction
+      );
+
+    }
+
+  }
+
+
+  // ==============================================
+  // A/B/C
+  // ==============================================
+
+  drawZones();
+
+
+  // ==============================================
+  // 人数
+  // ==============================================
+
+  drawPeopleCount();
+
+
+  // ==============================================
+  // 状態
+  // ==============================================
+
+  drawStatus();
+
+
+  // ==============================================
+  // AI再実行
+  // ==============================================
+
+  if (
+
+    modelReady
+
+    &&
+
+    cameraReady
+
+    &&
+
+    !detecting
+
+  ) {
+
+    detectPeople();
+
+  }
+
+}
+
+
+// ======================================================
+// カメラ表示
+// ======================================================
+
+function drawCamera() {
+
+  const videoWidth =
+    video.width;
+
+
+  const videoHeight =
+    video.height;
+
+
+  if (
+    !videoWidth ||
+    !videoHeight
+  ) {
+
+    return;
+
+  }
+
+
+  const videoRatio =
+    videoWidth /
+    videoHeight;
+
+
+  const canvasRatio =
+    width /
+    height;
+
+
+  let drawWidth;
+
+  let drawHeight;
+
+  let offsetX;
+
+  let offsetY;
+
+
+  if (
+    videoRatio > canvasRatio
+  ) {
+
+    drawHeight =
+      height;
+
+
+    drawWidth =
+      height *
+      videoRatio;
+
+
+    offsetX =
+      (width - drawWidth) / 2;
+
+
+    offsetY =
+      0;
+
+  }
+
+  else {
+
+    drawWidth =
+      width;
+
+
+    drawHeight =
+      width /
+      videoRatio;
+
+
+    offsetX =
+      0;
+
+
+    offsetY =
+      (height - drawHeight) / 2;
+
+  }
+
+
+  image(
+
+    video,
+
+    offsetX,
+
+    offsetY,
+
+    drawWidth,
+
+    drawHeight
+
+  );
+
+}
+
+
+// ======================================================
+// A/B/C表示
+// ======================================================
+
+function drawZones() {
+
+  // ==============================================
+  // 境界線
+  // ==============================================
+
+  stroke(
+    255,
+    255,
+    0
+  );
+
+  strokeWeight(4);
+
+
+  line(
+
+    width * ZONE_A_END,
+
+    0,
+
+    width * ZONE_A_END,
+
+    height
+
+  );
+
+
+  line(
+
+    width * ZONE_B_END,
+
+    0,
+
+    width * ZONE_B_END,
+
+    height
+
+  );
+
+
+  noStroke();
+
+
+  // ==============================================
+  // 上部背景
+  // ==============================================
+
+  fill(
+    0,
+    0,
+    0,
+    160
+  );
+
+
+  rect(
+    0,
+    0,
+    width,
+    90
+  );
+
+
+  // ==============================================
+  // A
+  // ==============================================
+
+  fill(
+    255,
+    255,
+    0
+  );
+
+
+  textAlign(
+    CENTER,
+    CENTER
+  );
+
+
+  textSize(
+    Math.max(
+      22,
+      width * 0.025
+    )
+  );
+
+
+  text(
+    "A：入口",
+    width * 0.165,
+    40
+  );
+
+
+  // ==============================================
+  // B
+  // ==============================================
+
+  text(
+    "B：中間",
+    width * 0.50,
+    40
+  );
+
+
+  // ==============================================
+  // C
+  // ==============================================
+
+  text(
+    "C：出口",
+    width * 0.835,
+    40
+  );
+
+
+  // ==============================================
+  // 説明
+  // ==============================================
+
+  textSize(
+    Math.max(
+      16,
+      width * 0.018
+    )
+  );
+
+
+  fill(255);
+
+
+  text(
+    "A → B → C  =  入室",
+    width * 0.50,
+    height - 45
+  );
+
+
+  text(
+    "C → B → A  =  退出",
+    width * 0.50,
+    height - 18
+  );
+
+}
+
+
+// ======================================================
+// 人物枠
+// ======================================================
+
+function drawPersonBox(
+  prediction
+) {
+
+  const bbox =
+    prediction.bbox;
+
+
+  const x =
+    bbox[0];
+
+
+  const y =
+    bbox[1];
+
+
+  const w =
+    bbox[2];
+
+
+  const h =
+    bbox[3];
+
+
+  // ==============================================
+  // COCO-SSDは960×720基準
+  // ==============================================
+
+  const scaleX =
+    width / 960;
+
+
+  const scaleY =
+    height / 720;
+
+
+  const drawX =
+    x * scaleX;
+
+
+  const drawY =
+    y * scaleY;
+
+
+  const drawW =
+    w * scaleX;
+
+
+  const drawH =
+    h * scaleY;
+
+
+  // ==============================================
+  // 枠
+  // ==============================================
+
+  noFill();
+
+
+  stroke(
+    0,
+    255,
+    0
+  );
+
+
+  strokeWeight(4);
+
+
+  rect(
+
+    drawX,
+    drawY,
+    drawW,
+    drawH
+
+  );
+
+
+  // ==============================================
+  // 信頼度
+  // ==============================================
+
+  const confidence =
+    Math.round(
+      prediction.score * 100
+    );
+
+
+  noStroke();
+
+
+  fill(
+    0,
+    0,
+    0,
+    180
+  );
+
+
+  rect(
+
+    drawX,
+
+    Math.max(
+      0,
+      drawY - 32
+    ),
+
+    160,
+
+    32
+
+  );
+
+
+  fill(255);
+
+
+  textAlign(
+    LEFT,
+    CENTER
+  );
+
+
+  textSize(16);
+
+
+  text(
+
+    "Person " +
+    confidence +
+    "%",
+
+    drawX + 8,
+
+    Math.max(
+      16,
+      drawY - 16
+    )
+
+  );
+
+}
+
+
+// ======================================================
+// 人数表示
+// ======================================================
+
+function drawPeopleCount() {
+
+  noStroke();
+
+
+  fill(
+    0,
+    0,
+    0,
+    180
+  );
+
+
+  rect(
+
+    20,
+    105,
+    300,
+    170,
+    15
+
+  );
+
+
+  fill(255);
+
+
+  textAlign(
+    LEFT
+  );
+
+
+  textSize(20);
+
+
+  text(
+    "AI入退室管理",
+    40,
+    135
+  );
+
+
+  textSize(34);
+
+
+  text(
+
+    "現在：" +
+    currentPeopleCount +
+    "人",
+
+    40,
+    180
+
+  );
+
+
+  textSize(19);
+
+
+  text(
+
+    "入室：" +
+    enteredCount +
+    "人",
+
+    40,
+    220
+
+  );
+
+
+  text(
+
+    "退出：" +
+    exitedCount +
+    "人",
+
+    165,
+    220
+
+  );
+
+
+  textSize(16);
+
+
+  text(
+
+    "カメラ内：" +
+    visiblePeopleCount +
+    "人",
+
+    40,
+    250
+
+  );
+
+}
+
+
+// ======================================================
+// 状態表示
+// ======================================================
+
+function drawStatus() {
+
+  textAlign(
+    RIGHT
+  );
+
+
+  textSize(17);
+
+
+  // ==============================================
+  // カメラ
+  // ==============================================
+
+  if (
+    cameraReady
+  ) {
+
+    fill(
+      0,
+      255,
+      0
+    );
+
+
+    text(
+      "Camera：背面",
+      width - 20,
+      30
+    );
+
+  }
+
+  else {
+
+    fill(
+      255,
+      100,
+      100
+    );
+
+
+    text(
+      "Camera：起動中",
+      width - 20,
+      30
+    );
+
+  }
+
+
+  // ==============================================
+  // AI
+  // ==============================================
+
+  if (
+    modelReady
+  ) {
+
+    fill(
+      0,
+      255,
+      0
+    );
+
+
+    text(
+      "AI：稼働中",
+      width - 20,
+      55
+    );
+
+  }
+
+  else {
+
+    fill(255);
+
+
+    text(
+      "AI：読み込み中",
+      width - 20,
+      55
+    );
+
+  }
+
+
+  // ==============================================
+  // Firebase
+  // ==============================================
+
+  if (
+    window.firebaseDB
+  ) {
+
+    fill(
+      0,
+      255,
+      0
+    );
+
+
+    text(
+      "Firebase：接続OK",
+      width - 20,
+      80
+    );
+
+  }
+
+  else {
+
+    fill(
+      255,
+      100,
+      100
+    );
+
+
+    text(
+      "Firebase：接続待ち",
+      width - 20,
+      80
+    );
+
+  }
+
+}
