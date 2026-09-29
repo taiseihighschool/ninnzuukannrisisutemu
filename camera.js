@@ -1,10 +1,10 @@
 // ======================================================
 // AI人数管理システム
-// 縦方向A・B・C + 高感度 + 安定追跡 完成版
+// 横方向A・B・C + 高感度 + 安定追跡 完全版
 //
-// A = 上
+// A = 左・入口
 // B = 中央
-// C = 下
+// C = 右・出口
 //
 // 入室
 // A → B → C
@@ -55,23 +55,23 @@ let nextTrackId = 1;
 // 感度設定
 // ======================================================
 
-// 小さいほど人を検出しやすい
+// 小さくすると人を検出しやすくなる
 const PERSON_CONFIDENCE = 0.35;
 
-// AIから一時的に消えても同じ人物として保持
+// 一時的に検出できなくても同じ人物として保持する時間
 const TRACK_TIMEOUT = 4000;
 
-// 同じ人物として認識する最大距離
+// 同じ人物として認識する距離
 const MATCH_DISTANCE = 220;
 
 
 // ======================================================
-// ゾーン
+// 横方向ゾーン
 // ======================================================
 
-// 上 1/3 = A
-// 中央 1/3 = B
-// 下 1/3 = C
+// A = 左 1/3
+// B = 中央 1/3
+// C = 右 1/3
 
 const ZONE_A_END = 0.33;
 const ZONE_B_END = 0.66;
@@ -107,10 +107,12 @@ function setup() {
 
   updateCanvasSize();
 
+
   const canvas = createCanvas(
     canvasWidth,
     canvasHeight
   );
+
 
   canvas.parent("app");
 
@@ -175,12 +177,17 @@ function updateCanvasSize() {
 
   if (windowWidth >= windowHeight) {
 
-    canvasWidth = windowWidth;
-    canvasHeight = windowHeight;
+    canvasWidth =
+      windowWidth;
+
+    canvasHeight =
+      windowHeight;
 
   } else {
 
-    canvasWidth = windowWidth;
+    canvasWidth =
+      windowWidth;
+
     canvasHeight =
       windowWidth * 9 / 16;
 
@@ -196,6 +203,7 @@ function updateCanvasSize() {
 function windowResized() {
 
   updateCanvasSize();
+
 
   resizeCanvas(
     canvasWidth,
@@ -215,20 +223,27 @@ async function loadAIModel() {
     "COCO-SSDを読み込んでいます..."
   );
 
+
   try {
 
     model =
       await cocoSsd.load();
 
-    modelReady = true;
+
+    modelReady =
+      true;
+
 
     console.log(
       "AIモデル読み込み完了"
     );
 
+
     sendPeopleData();
 
+
     detectPeople();
+
 
   } catch (error) {
 
@@ -248,18 +263,28 @@ async function loadAIModel() {
 
 async function detectPeople() {
 
-  if (detecting) {
+  if (
+    detecting
+  ) {
+
     return;
+
   }
+
 
   if (
     !modelReady ||
     !cameraReady
   ) {
+
     return;
+
   }
 
-  detecting = true;
+
+  detecting =
+    true;
+
 
   try {
 
@@ -269,7 +294,8 @@ async function detectPeople() {
       );
 
 
-    let persons = [];
+    let persons =
+      [];
 
 
     // ==================================================
@@ -323,6 +349,7 @@ async function detectPeople() {
 
     sendPeopleData();
 
+
   } catch (error) {
 
     console.error(
@@ -332,7 +359,9 @@ async function detectPeople() {
 
   }
 
-  detecting = false;
+
+  detecting =
+    false;
 
 }
 
@@ -347,11 +376,12 @@ function updateTracks(persons) {
     Date.now();
 
 
-  let detections = [];
+  let detections =
+    [];
 
 
   // ==================================================
-  // 検出された人物の中心座標を作る
+  // 検出人物の中心座標
   // ==================================================
 
   for (
@@ -428,7 +458,9 @@ function updateTracks(persons) {
       if (
         detection.matched
       ) {
+
         continue;
+
       }
 
 
@@ -469,7 +501,9 @@ function updateTracks(persons) {
     // 同じ人物として更新
     // ==================================================
 
-    if (bestDetection) {
+    if (
+      bestDetection
+    ) {
 
       bestDetection.matched =
         true;
@@ -486,7 +520,7 @@ function updateTracks(persons) {
         );
 
 
-      // 少しだけ位置を滑らかにする
+      // 少し滑らかに追跡
       track.x =
         track.x * 0.35 +
         bestDetection.x * 0.65;
@@ -505,9 +539,10 @@ function updateTracks(persons) {
         bestDetection.prediction;
 
 
-      // 最新ゾーン
+      // ゾーン変更
       if (
-        newZone !== track.currentZone
+        newZone !==
+        track.currentZone
       ) {
 
         updateZoneHistory(
@@ -540,7 +575,9 @@ function updateTracks(persons) {
     if (
       detection.matched
     ) {
+
       continue;
+
     }
 
 
@@ -574,6 +611,7 @@ function updateTracks(persons) {
       zoneHistory:
         [initialZone],
 
+
       // ----------------------------------------------
       // 入室
       // ----------------------------------------------
@@ -584,16 +622,17 @@ function updateTracks(persons) {
       entryProgress:
         0,
 
+
       // ----------------------------------------------
       // 退出
       //
       // 0 = 通常
-      // 1 = C到達
       // 2 = C→B確認
       // ----------------------------------------------
 
       exitState:
         0,
+
 
       lastCountTime:
         0
@@ -697,7 +736,7 @@ function getActualVideoHeight() {
 
 
 // ======================================================
-// カメラ映像とキャンバスの共通座標
+// カメラ映像と画面の共通座標
 // ======================================================
 
 function getVideoGeometry() {
@@ -727,7 +766,7 @@ function getVideoGeometry() {
 
 
   // ==================================================
-  // 横長カメラ
+  // 横長映像
   // ==================================================
 
   if (
@@ -738,9 +777,11 @@ function getVideoGeometry() {
     drawHeight =
       height;
 
+
     drawWidth =
       height *
       videoRatio;
+
 
     offsetX =
       (
@@ -748,13 +789,15 @@ function getVideoGeometry() {
         drawWidth
       ) / 2;
 
+
     offsetY =
       0;
 
   }
 
+
   // ==================================================
-  // 縦長カメラ
+  // 縦長映像
   // ==================================================
 
   else {
@@ -762,12 +805,15 @@ function getVideoGeometry() {
     drawWidth =
       width;
 
+
     drawHeight =
       width /
       videoRatio;
 
+
     offsetX =
       0;
+
 
     offsetY =
       (
@@ -804,11 +850,11 @@ function getVideoGeometry() {
 
 
 // ======================================================
-// ★縦方向A/B/C判定
+// ★横方向A/B/C判定
 //
-// A = 上
+// A = 左
 // B = 中央
-// C = 下
+// C = 右
 // ======================================================
 
 function getZone(
@@ -816,14 +862,18 @@ function getZone(
   y
 ) {
 
-  const actualVideoHeight =
-    getActualVideoHeight();
+  const actualVideoWidth =
+    getActualVideoWidth();
 
 
   const ratio =
-    y /
-    actualVideoHeight;
+    x /
+    actualVideoWidth;
 
+
+  // ==================================================
+  // A
+  // ==================================================
 
   if (
     ratio <
@@ -835,6 +885,10 @@ function getZone(
   }
 
 
+  // ==================================================
+  // B
+  // ==================================================
+
   if (
     ratio <
     ZONE_B_END
@@ -844,6 +898,10 @@ function getZone(
 
   }
 
+
+  // ==================================================
+  // C
+  // ==================================================
 
   return "C";
 
@@ -929,7 +987,7 @@ function checkEntry(
   newZone
 ) {
 
-  // すでに中にいる人は入室しない
+  // すでに入室中
   if (
     track.inside
   ) {
@@ -951,12 +1009,14 @@ function checkEntry(
     track.entryProgress =
       1;
 
+
     console.log(
       "人物",
       track.id,
       "A→B",
       "【入室準備】"
     );
+
 
     return;
 
@@ -966,7 +1026,7 @@ function checkEntry(
   // ==================================================
   // B → A
   //
-  // 戻ったのでやり直し
+  // 戻ったのでキャンセル
   // ==================================================
 
   if (
@@ -977,12 +1037,14 @@ function checkEntry(
     track.entryProgress =
       0;
 
+
     console.log(
       "人物",
       track.id,
       "B→A",
       "【入室キャンセル】"
     );
+
 
     return;
 
@@ -1003,6 +1065,7 @@ function checkEntry(
       track
     );
 
+
     return;
 
   }
@@ -1011,10 +1074,7 @@ function checkEntry(
   // ==================================================
   // A → C
   //
-  // Bを一瞬で通過した場合
-  //
-  // Aにいた人がCまで進んだ場合のみ
-  // 入室として扱う
+  // Bを一瞬で通過
   // ==================================================
 
   if (
@@ -1029,9 +1089,11 @@ function checkEntry(
       "【B高速通過】"
     );
 
+
     executeEntry(
       track
     );
+
 
     return;
 
@@ -1106,24 +1168,31 @@ function executeEntry(
     "================================"
   );
 
+
   console.log(
     "★ 入室"
   );
+
 
   console.log(
     "人物ID:",
     track.id
   );
 
+
   console.log(
     "入室経路:",
-    track.zoneHistory.join(" → ")
+    track.zoneHistory.join(
+      " → "
+    )
   );
+
 
   console.log(
     "現在人数:",
     currentPeopleCount
   );
+
 
   console.log(
     "================================"
@@ -1149,7 +1218,7 @@ function checkExit(
 ) {
 
   // ==================================================
-  // inside=trueの人だけ退出可能
+  // inside=trueだけ退出可能
   // ==================================================
 
   if (
@@ -1181,6 +1250,7 @@ function checkExit(
       "【退出準備】"
     );
 
+
     return;
 
   }
@@ -1189,7 +1259,7 @@ function checkExit(
   // ==================================================
   // C → A
   //
-  // Bを完全に飛ばした場合
+  // Bを飛ばして退出
   // ==================================================
 
   if (
@@ -1204,9 +1274,11 @@ function checkExit(
       "【退出】"
     );
 
+
     executeExit(
       track
     );
+
 
     return;
 
@@ -1235,18 +1307,21 @@ function checkExit(
         "【退出】"
       );
 
+
       executeExit(
         track
       );
+
 
       return;
 
     }
 
 
-    // Cを通っていないB→Aは退出にしない
+    // Cを通っていない場合は退出しない
     track.exitState =
       0;
+
 
     return;
 
@@ -1267,12 +1342,14 @@ function checkExit(
     track.exitState =
       0;
 
+
     console.log(
       "人物",
       track.id,
       "B→C",
       "【退出キャンセル】"
     );
+
 
     return;
 
@@ -1291,6 +1368,7 @@ function checkExit(
     track.exitState =
       0;
 
+
     return;
 
   }
@@ -1306,7 +1384,7 @@ function executeExit(
   track
 ) {
 
-  // inside=trueだけ退出
+  // inside=trueだけ
   if (
     track.inside !== true
   ) {
@@ -1351,7 +1429,7 @@ function executeExit(
 
 
   // ==================================================
-  // 退出済みにする
+  // 退出済み
   // ==================================================
 
   track.inside =
@@ -1374,19 +1452,23 @@ function executeExit(
     "================================"
   );
 
+
   console.log(
     "★ 退出"
   );
+
 
   console.log(
     "人物ID:",
     track.id
   );
 
+
   console.log(
     "現在人数:",
     currentPeopleCount
   );
+
 
   console.log(
     "================================"
@@ -1457,7 +1539,7 @@ async function sendPeopleData() {
         "tablet",
 
       orientation:
-        "vertical-ABC",
+        "horizontal-ABC",
 
       updatedAt:
         Date.now(),
@@ -1503,9 +1585,11 @@ function resetSystem() {
     "=============================="
   );
 
+
   console.log(
     "★ リセット"
   );
+
 
   console.log(
     "=============================="
@@ -1515,11 +1599,14 @@ function resetSystem() {
   visiblePeopleCount =
     0;
 
+
   enteredCount =
     0;
 
+
   exitedCount =
     0;
+
 
   currentPeopleCount =
     0;
@@ -1570,12 +1657,15 @@ function draw() {
 
     fill(255);
 
+
     textAlign(
       CENTER,
       CENTER
     );
 
+
     textSize(28);
+
 
     text(
       "背面カメラを起動しています...",
@@ -1587,7 +1677,7 @@ function draw() {
 
 
   // ==================================================
-  // A/B/C
+  // ABC
   // ==================================================
 
   drawZones();
@@ -1677,16 +1767,17 @@ function drawCamera() {
 
     geometry.drawWidth,
     geometry.drawHeight
-
   );
 
 }
 
 
 // ======================================================
-// ★縦ABC表示
+// ★横方向ABC表示
 //
-// カメラ映像と同じgeometryを使用
+// A = 左
+// B = 中央
+// C = 右
 // ======================================================
 
 function drawZones() {
@@ -1695,15 +1786,23 @@ function drawZones() {
     getVideoGeometry();
 
 
-  const topA =
-    geometry.offsetY +
-    geometry.drawHeight *
+  // ==================================================
+  // A/B境界
+  // ==================================================
+
+  const lineA =
+    geometry.offsetX +
+    geometry.drawWidth *
     ZONE_A_END;
 
 
-  const topB =
-    geometry.offsetY +
-    geometry.drawHeight *
+  // ==================================================
+  // B/C境界
+  // ==================================================
+
+  const lineB =
+    geometry.offsetX +
+    geometry.drawWidth *
     ZONE_B_END;
 
 
@@ -1713,26 +1812,27 @@ function drawZones() {
     0
   );
 
+
   strokeWeight(4);
 
 
-  // A/B境界
+  // A/B
   line(
-    geometry.offsetX,
-    topA,
-    geometry.offsetX +
-      geometry.drawWidth,
-    topA
+    lineA,
+    geometry.offsetY,
+    lineA,
+    geometry.offsetY +
+      geometry.drawHeight
   );
 
 
-  // B/C境界
+  // B/C
   line(
-    geometry.offsetX,
-    topB,
-    geometry.offsetX +
-      geometry.drawWidth,
-    topB
+    lineB,
+    geometry.offsetY,
+    lineB,
+    geometry.offsetY +
+      geometry.drawHeight
   );
 
 
@@ -1740,15 +1840,16 @@ function drawZones() {
 
 
   // ==================================================
-  // A
+  // 上部表示
   // ==================================================
 
   fill(
     0,
     0,
     0,
-    150
+    160
   );
+
 
   rect(
     0,
@@ -1757,6 +1858,10 @@ function drawZones() {
     70
   );
 
+
+  // ==================================================
+  // A
+  // ==================================================
 
   fill(
     255,
@@ -1781,7 +1886,9 @@ function drawZones() {
 
   text(
     "A：入口",
-    width / 2,
+    geometry.offsetX +
+      geometry.drawWidth *
+      0.165,
     geometry.offsetY +
       geometry.drawHeight *
       0.16
@@ -1794,10 +1901,12 @@ function drawZones() {
 
   text(
     "B：中間",
-    width / 2,
+    geometry.offsetX +
+      geometry.drawWidth *
+      0.50,
     geometry.offsetY +
       geometry.drawHeight *
-      0.50
+      0.16
   );
 
 
@@ -1807,10 +1916,12 @@ function drawZones() {
 
   text(
     "C：出口",
-    width / 2,
+    geometry.offsetX +
+      geometry.drawWidth *
+      0.835,
     geometry.offsetY +
       geometry.drawHeight *
-      0.84
+      0.16
   );
 
 
@@ -1819,6 +1930,7 @@ function drawZones() {
   // ==================================================
 
   fill(255);
+
 
   textSize(
     Math.max(
@@ -1829,14 +1941,14 @@ function drawZones() {
 
 
   text(
-    "A ↓ B ↓ C = 入室",
+    "A → B → C = 入室",
     width / 2,
     height - 45
   );
 
 
   text(
-    "C ↑ B ↑ A / C ↑ A = 退出",
+    "C → B → A / C → A = 退出",
     width / 2,
     height - 18
   );
@@ -1847,7 +1959,7 @@ function drawZones() {
 // ======================================================
 // ★人物枠
 //
-// カメラ映像と完全に同じ座標変換
+// カメラ映像と同じ座標変換を使用
 // ======================================================
 
 function drawPersonBox(
@@ -1861,11 +1973,14 @@ function drawPersonBox(
   const x =
     bbox[0];
 
+
   const y =
     bbox[1];
 
+
   const w =
     bbox[2];
+
 
   const h =
     bbox[3];
@@ -1919,6 +2034,10 @@ function drawPersonBox(
     h / 2;
 
 
+  // ==================================================
+  // 現在ゾーン
+  // ==================================================
+
   const zone =
     getZone(
       centerX,
@@ -1927,7 +2046,7 @@ function drawPersonBox(
 
 
   // ==================================================
-  // IDを探す
+  // 対応する追跡人物
   // ==================================================
 
   const track =
@@ -1944,10 +2063,13 @@ function drawPersonBox(
     "外";
 
 
-  if (track) {
+  if (
+    track
+  ) {
 
     trackId =
       track.id;
+
 
     if (
       track.inside
@@ -1962,16 +2084,18 @@ function drawPersonBox(
 
 
   // ==================================================
-  // 枠
+  // 緑枠
   // ==================================================
 
   noFill();
+
 
   stroke(
     0,
     255,
     0
   );
+
 
   strokeWeight(4);
 
@@ -1989,6 +2113,7 @@ function drawPersonBox(
   // ==================================================
 
   noStroke();
+
 
   fill(
     0,
@@ -2010,10 +2135,11 @@ function drawPersonBox(
 
 
   // ==================================================
-  // ラベル
+  // ID
   // ==================================================
 
   fill(255);
+
 
   textAlign(
     LEFT,
@@ -2034,6 +2160,10 @@ function drawPersonBox(
     )
   );
 
+
+  // ==================================================
+  // ZONE
+  // ==================================================
 
   text(
     "ZONE: " +
@@ -2069,8 +2199,10 @@ function drawPersonBox(
     confidence +
     "%",
     drawX +
-      drawW -
-      45,
+      Math.max(
+        0,
+        drawW - 45
+      ),
     drawY + 20
   );
 
@@ -2141,6 +2273,7 @@ function findTrackForPrediction(
 
       bestDistance =
         distance;
+
 
       bestTrack =
         track;
@@ -2257,7 +2390,7 @@ function drawPeopleCount() {
 
 
 // ======================================================
-// ★追跡状態表示
+// 追跡状態表示
 // ======================================================
 
 function drawTrackingInfo() {
