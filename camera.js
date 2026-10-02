@@ -66,10 +66,10 @@ let nextTrackId = 1;
 const PERSON_CONFIDENCE = 0.35;
 
 // AI認識から一時的に消えても同じ人物として保持する時間
-const TRACK_TIMEOUT = 8000;
+const TRACK_TIMEOUT = 3500;
 
 // 前回位置からこの距離以内なら同じ人物として追跡
-const MATCH_DISTANCE = 280;
+const MATCH_DISTANCE = 180;
 
 // 同じ人物の入退室を短時間に二重計上しない
 const COUNT_COOLDOWN = 500;
@@ -425,23 +425,13 @@ function updateTracks(persons) {
         continue;
       }
 
-      const missed = track.missedFrames || 0;
-      // ★速度が未定義でも追跡できるようにする
-      const vx =
-        track.velocityX || 0;
-      const vy =
-        track.velocityY || 0;
-
-      const predictedX =
-        track.x + vx * Math.min(missed + 1, 3);
-      const predictedY =
-        track.y + vy * Math.min(missed + 1, 3);
-
       const dx =
-        detection.x - predictedX;
+        detection.x -
+        track.x;
 
       const dy =
-        detection.y - predictedY;
+        detection.y -
+        track.y;
 
       const distance =
         Math.sqrt(
@@ -486,16 +476,17 @@ function updateTracks(persons) {
           bestDetection.y
         );
 
-      const previousX = track.x;
-      const previousY = track.y;
+      track.x =
+        bestDetection.x;
 
-      track.velocityX = bestDetection.x - previousX;
-      track.velocityY = bestDetection.y - previousY;
-      track.x = bestDetection.x;
-      track.y = bestDetection.y;
-      track.lastSeen = now;
-      track.missedFrames = 0;
-      track.prediction = bestDetection.prediction;
+      track.y =
+        bestDetection.y;
+
+      track.lastSeen =
+        now;
+
+      track.prediction =
+        bestDetection.prediction;
 
       updateZoneHistory(
         track,
@@ -507,16 +498,6 @@ function updateTracks(persons) {
 
   }
 
-
-  // ==================================================
-  // AIで一時的に見えなくなった人物を保持
-  // ==================================================
-  for (let i = 0; i < tracks.length; i++) {
-    if (tracks[i].lastSeen !== now) {
-      tracks[i].missedFrames =
-        (tracks[i].missedFrames || 0) + 1;
-    }
-  }
 
   // ==================================================
   // 新しい人物
@@ -559,16 +540,6 @@ function updateTracks(persons) {
 
       prediction:
         detection.prediction,
-
-      // ★初期速度
-      velocityX:
-        0,
-      velocityY:
-        0,
-
-      // ★検出ロスト回数
-      missedFrames:
-        0,
 
       currentZone:
         initialZone,
@@ -986,47 +957,114 @@ function checkExit(
   newZone
 ) {
 
-  if (track.inside !== true) {
+  // 入室していない人物は退出対象にしない
+  if (
+    track.inside !== true
+  ) {
+
     return;
+
   }
 
-  // Cに一度でも到達した入室者を退出候補として保持
-  if (newZone === "C") {
-    track.passedC = true;
-    track.exitState = 1;
+
+  // ==================================================
+  // C到達
+  // ==================================================
+
+  if (
+    newZone === "C"
+  ) {
+
+    track.passedC =
+      true;
+
+    track.exitState =
+      1;
 
     console.log(
       "人物",
       track.id,
-      "C到達 → 退出候補"
+      "C通過 → 退出判定開始"
     );
 
     return;
+
   }
 
-  // ★ C → B → A
-  // ★ C → A
-  // Cの後にAへ到達したら、必ず退出確定
-  if (track.passedC === true && newZone === "A") {
+
+  // ==================================================
+  // C通過済み + A到達
+  //
+  // ★最重要
+  // C→B→A
+  // C→A
+  // どちらも退出確定
+  //
+  // Bを短時間しか検出できなくてもOK
+  // ==================================================
+
+  if (
+    track.passedC === true &&
+    newZone === "A"
+  ) {
+
     console.log(
       "人物",
       track.id,
-      "C → B → A【退出確定】"
+      oldZone + "→A",
+      "C通過済み【退出確定】"
     );
 
-    executeExit(track);
+    executeExit(
+      track
+    );
+
     return;
+
   }
 
-  if (oldZone === "C" && newZone === "B") {
-    track.exitState = 2;
+
+  // ==================================================
+  // C → B
+  // ==================================================
+
+  if (
+    oldZone === "C" &&
+    newZone === "B"
+  ) {
+
+    track.exitState =
+      2;
 
     console.log(
       "人物",
       track.id,
-      "C → B【退出中】"
+      "C→B【退出準備】"
     );
+
+    return;
+
   }
+
+
+  // ==================================================
+  // B → A
+  //
+  // Cを通過していない場合は退出しない
+  // ==================================================
+
+  if (
+    oldZone === "B" &&
+    newZone === "A"
+  ) {
+
+    track.exitState =
+      0;
+
+    return;
+
+  }
+
 }
 
 
