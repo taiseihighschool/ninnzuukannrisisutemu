@@ -1,706 +1,626 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
-  <meta charset="UTF-8">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
+<title>食堂 混雑状況</title>
 
-  <title>食堂 混雑状況</title>
+<style>
+* {
+  box-sizing: border-box;
+}
 
-  <style>
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Noto Sans JP",
+    sans-serif;
+  background: #f4f7fb;
+  color: #1f2937;
+}
 
-    * {
-      box-sizing: border-box;
-    }
+body {
+  display: flex;
+  justify-content: center;
+}
 
-    html,
-    body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      min-height: 100%;
-      font-family: sans-serif;
-      background: #111;
-      color: white;
-    }
+.container {
+  width: 100%;
+  max-width: 600px;
+  padding: 24px 18px 40px;
+}
 
-    body {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-    }
+/* ヘッダー */
+.header {
+  text-align: center;
+  margin-bottom: 22px;
+}
 
-    /* ==========================================
-       全体
-       ========================================== */
+.header .icon {
+  font-size: 42px;
+}
 
-    .container {
-      width: 92%;
-      max-width: 900px;
-      text-align: center;
-      padding: 30px 0;
-    }
+.header h1 {
+  margin: 8px 0 5px;
+  font-size: 27px;
+}
 
+.header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+}
 
-    /* ==========================================
-       タイトル
-       ========================================== */
+/* メインカード */
+.main-card {
+  background: white;
+  border-radius: 28px;
+  padding: 30px 20px;
+  text-align: center;
+  box-shadow:
+    0 10px 30px rgba(0,0,0,0.08);
+  margin-bottom: 18px;
+}
 
-    .title {
-      font-size: clamp(30px, 6vw, 55px);
-      font-weight: bold;
-      margin-bottom: 35px;
-    }
+.main-title {
+  font-size: 17px;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
 
+.people-number {
+  font-size: 92px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -4px;
+}
 
-    .subtitle {
-      font-size: clamp(16px, 3vw, 22px);
-      color: #aaa;
-      margin-bottom: 30px;
-    }
+.people-unit {
+  font-size: 24px;
+  font-weight: 600;
+  margin-left: 5px;
+}
 
+/* 混雑状態 */
+.congestion {
+  margin-top: 22px;
+  padding: 15px;
+  border-radius: 16px;
+  font-size: 20px;
+  font-weight: 700;
+}
 
-    /* ==========================================
-       混雑状態
-       ========================================== */
+.congestion.empty {
+  background: #dcfce7;
+  color: #166534;
+}
 
-    .status-card {
-      background: #222;
-      border-radius: 30px;
-      padding: 45px 25px;
-      margin-bottom: 25px;
-    }
+.congestion.normal {
+  background: #fef3c7;
+  color: #92400e;
+}
 
+.congestion.crowded {
+  background: #fee2e2;
+  color: #991b1b;
+}
 
-    .status-icon {
-      font-size: clamp(80px, 15vw, 150px);
-      line-height: 1;
-      margin-bottom: 20px;
-    }
+/* 詳細カード */
+.info-card {
+  background: white;
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow:
+    0 6px 20px rgba(0,0,0,0.06);
+  margin-bottom: 15px;
+}
 
+.info-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 15px;
+}
 
-    .status-text {
-      font-size: clamp(40px, 8vw, 75px);
-      font-weight: bold;
-      margin-bottom: 25px;
-    }
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 11px 0;
+  border-bottom: 1px solid #eef0f3;
+}
 
+.row:last-child {
+  border-bottom: none;
+}
 
-    .status-description {
-      font-size: clamp(18px, 4vw, 28px);
-      color: #ddd;
-    }
+.label {
+  color: #6b7280;
+}
 
+.value {
+  font-weight: 700;
+}
 
-    /* ==========================================
-       現在人数
-       ========================================== */
+/* 接続状態 */
+.connection {
+  text-align: center;
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 20px;
+}
 
-    .people-box {
-      background: #222;
-      border-radius: 25px;
-      padding: 30px;
-      margin-bottom: 25px;
-    }
+.connected {
+  color: #16a34a;
+  font-weight: 700;
+}
 
+.disconnected {
+  color: #dc2626;
+  font-weight: 700;
+}
 
-    .people-title {
-      font-size: 24px;
-      color: #aaa;
-      margin-bottom: 10px;
-    }
+/* 更新 */
+.update {
+  text-align: center;
+  color: #9ca3af;
+  font-size: 12px;
+  margin-top: 8px;
+}
 
+/* 説明 */
+.note {
+  background: #eef6ff;
+  border-radius: 16px;
+  padding: 15px;
+  margin-top: 20px;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.7;
+}
 
-    .people-count {
-      font-size: clamp(70px, 15vw, 130px);
-      font-weight: bold;
-      line-height: 1;
-    }
+@media (max-width: 400px) {
 
+  .container {
+    padding: 18px 12px 30px;
+  }
 
-    .people-unit {
-      font-size: 35px;
-      margin-left: 5px;
-    }
+  .header h1 {
+    font-size: 23px;
+  }
 
-
-    /* ==========================================
-       目安
-       ========================================== */
-
-    .guide {
-      display: flex;
-      justify-content: center;
-      gap: 15px;
-      flex-wrap: wrap;
-      margin-bottom: 30px;
-    }
-
-
-    .guide-item {
-      background: #222;
-      border-radius: 15px;
-      padding: 15px 25px;
-      font-size: 18px;
-    }
-
-
-    /* ==========================================
-       更新情報
-       ========================================== */
-
-    .update {
-      color: #888;
-      font-size: 16px;
-    }
-
-
-    /* ==========================================
-       Firebase接続状態
-       ========================================== */
-
-    .connection {
-      margin-top: 10px;
-      font-size: 15px;
-    }
-
-
-    .ok {
-      color: #00ff66;
-    }
-
-
-    .ng {
-      color: #ff6666;
-    }
-
-
-    /* ==========================================
-       色
-       ========================================== */
-
-    .green {
-      color: #00ff66;
-    }
-
-
-    .yellow {
-      color: #ffd600;
-    }
-
-
-    .red {
-      color: #ff4444;
-    }
-
-
-    /* ==========================================
-       スマホ対応
-       ========================================== */
-
-    @media (max-width: 600px) {
-
-      .container {
-        width: 94%;
-        padding: 20px 0;
-      }
-
-      .status-card {
-        padding: 35px 15px;
-        border-radius: 25px;
-      }
-
-      .people-box {
-        padding: 25px 15px;
-      }
-
-      .guide-item {
-        width: 100%;
-      }
-
-    }
-
-  </style>
-
+  .people-number {
+    font-size: 75px;
+  }
+}
+</style>
 </head>
-
 
 <body>
 
+<div class="container">
 
-  <div class="container">
+  <!-- ヘッダー -->
+  <div class="header">
 
-
-    <!-- ==========================================
-         タイトル
-         ========================================== -->
-
-    <div class="title">
-      🏫 食堂 混雑状況
+    <div class="icon">
+      🍴
     </div>
 
+    <h1>
+      食堂の混雑状況
+    </h1>
 
-    <div class="subtitle">
-      現在の食堂の混雑状況を表示しています
+    <p>
+      AIによるリアルタイム人数管理
+    </p>
+
+  </div>
+
+
+  <!-- 現在人数 -->
+  <div class="main-card">
+
+    <div class="main-title">
+      現在の食堂人数
     </div>
 
-
-    <!-- ==========================================
-         混雑状態
-         ========================================== -->
-
-    <div class="status-card">
-
-      <div
-        id="statusIcon"
-        class="status-icon"
+    <div>
+      <span
+        id="peopleCount"
+        class="people-number"
       >
-        ⚪
-      </div>
+        0
+      </span>
+
+      <span class="people-unit">
+        人
+      </span>
+    </div>
+
+    <div
+      id="congestion"
+      class="congestion empty"
+    >
+      🟢 空いています
+    </div>
+
+  </div>
 
 
-      <div
-        id="statusText"
-        class="status-text"
+  <!-- 詳細 -->
+  <div class="info-card">
+
+    <div class="info-title">
+      📊 現在の状況
+    </div>
+
+    <div class="row">
+
+      <span class="label">
+        入室人数
+      </span>
+
+      <span
+        id="enteredCount"
+        class="value"
       >
-        読み込み中
-      </div>
+        0人
+      </span>
 
+    </div>
 
-      <div
-        id="statusDescription"
-        class="status-description"
+    <div class="row">
+
+      <span class="label">
+        退出人数
+      </span>
+
+      <span
+        id="exitedCount"
+        class="value"
       >
-        混雑状況を確認しています
-      </div>
+        0人
+      </span>
 
     </div>
 
+    <div class="row">
 
-    <!-- ==========================================
-         現在人数
-         ========================================== -->
+      <span class="label">
+        最終更新
+      </span>
 
-    <div class="people-box">
-
-      <div class="people-title">
-        現在の人数
-      </div>
-
-
-      <div>
-
-        <span
-          id="peopleCount"
-          class="people-count"
-        >
-          0
-        </span>
-
-        <span class="people-unit">
-          人
-        </span>
-
-      </div>
-
-    </div>
-
-
-    <!-- ==========================================
-         混雑度の目安
-         ========================================== -->
-
-    <div class="guide">
-
-      <div class="guide-item green">
-        🟢 空いています
-      </div>
-
-      <div class="guide-item yellow">
-        🟡 やや混雑
-      </div>
-
-      <div class="guide-item red">
-        🔴 混雑しています
-      </div>
-
-    </div>
-
-
-    <!-- ==========================================
-         更新時間
-         ========================================== -->
-
-    <div class="update">
-
-      最終更新：
-      <span id="updateTime">
+      <span
+        id="updateTime"
+        class="value"
+      >
         --
       </span>
 
     </div>
 
-
-    <!-- ==========================================
-         Firebase状態
-         ========================================== -->
-
-    <div class="connection">
-
-      Firebase：
-      <span
-        id="firebaseStatus"
-        class="ng"
-      >
-        接続中...
-      </span>
-
-    </div>
-
-
   </div>
 
 
-  <!-- ==========================================
-       Firebase
-       ========================================== -->
+  <!-- Firebase状態 -->
+  <div class="connection">
 
-  <script type="module">
+    Firebase：
+    
+    <span
+      id="firebaseStatus"
+      class="connected"
+    >
+      接続中...
+    </span>
 
+  </div>
 
-    import {
-      initializeApp
-    }
-    from
-      "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+  <div
+    id="connectionError"
+    class="connection"
+  >
+  </div>
 
 
-    import {
-      getDatabase,
-      ref,
-      onValue
-    }
-    from
-      "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+  <!-- 説明 -->
+  <div class="note">
 
+    💡 このページでは、食堂に現在何人いるかを
+    AI人数管理システムからリアルタイムで確認できます。
 
-    /* ==========================================
-       Firebase設定
-       ========================================== */
+    <br><br>
 
-    const firebaseConfig = {
+    🟢 0～9人：空いています<br>
+    🟡 10～19人：やや混雑<br>
+    🔴 20人以上：混雑しています
 
-      apiKey:
-        "AIzaSyAslBm8rtnbcpuMTMHHJbErpJoMp_im-fg",
+  </div>
 
-      authDomain:
-        "aininnzuukannri-136ec.firebaseapp.com",
+</div>
 
-      databaseURL:
-        "https://aininnzuukannri-136ec-default-rtdb.firebaseio.com",
 
-      projectId:
-        "aininnzuukannri-136ec",
+<script type="module">
 
-      storageBucket:
-        "aininnzuukannri-136ec.firebasestorage.app",
+import {
+  initializeApp
+}
+from
+"https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 
-      messagingSenderId:
-        "761746001349",
+import {
+  getDatabase,
+  ref,
+  onValue
+}
+from
+"https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
-      appId:
-        "1:761746001349:web:f01d89e616dfe5689ccfac",
 
-      measurementId:
-        "G-D053Q0CVGR"
+/* ==========================================
+   Firebase設定
+========================================== */
 
-    };
+const firebaseConfig = {
 
+  apiKey:
+    "AIzaSyAslBm8rtnbcpuMTMHHJbErpJoMp_im-fg",
 
-    /* ==========================================
-       混雑人数設定
-       
-       ここを変更すると
-       混雑する人数を変更できます。
-       ========================================== */
+  authDomain:
+    "aininnzuukannri-136ec.firebaseapp.com",
 
-    const YELLOW_LIMIT = 10;
-    const RED_LIMIT = 20;
+  databaseURL:
+    "https://aininnzuukannri-136ec-default-rtdb.firebaseio.com",
 
+  projectId:
+    "aininnzuukannri-136ec",
 
-    /* ==========================================
-       Firebase開始
-       ========================================== */
+  storageBucket:
+    "aininnzuukannri-136ec.firebasestorage.app",
 
-    try {
+  messagingSenderId:
+    "761746001349",
 
-      const app =
-        initializeApp(
-          firebaseConfig
-        );
+  appId:
+    "1:761746001349:web:f01d89e616dfe5689ccfac",
 
+  measurementId:
+    "G-D053Q0CVGR"
 
-      const db =
-        getDatabase(
-          app
-        );
+};
 
 
-      document
-        .getElementById("firebaseStatus")
-        .textContent =
-        "接続OK";
+/* ==========================================
+   Firebase開始
+========================================== */
 
+try {
 
-      document
-        .getElementById("firebaseStatus")
-        .className =
-        "ok";
+  const app =
+    initializeApp(
+      firebaseConfig
+    );
 
+  const db =
+    getDatabase(app);
 
-      /* ========================================
-         人数データ
-         ======================================== */
+  const peopleRef =
+    ref(
+      db,
+      "people/current"
+    );
 
-      const peopleRef =
-        ref(
-          db,
-          "people/current"
-        );
 
+  document
+    .getElementById(
+      "firebaseStatus"
+    )
+    .textContent =
+    "接続OK";
 
-      onValue(
-        peopleRef,
-        function(snapshot) {
 
-          const data =
-            snapshot.val();
+  /* ==========================================
+     人数データ監視
+  ========================================== */
 
+  onValue(
 
-          console.log(
-            "混雑状況データ:",
-            data
-          );
+    peopleRef,
 
+    function(snapshot) {
 
-          if (!data) {
+      const data =
+        snapshot.val();
 
-            updateStatus(0);
 
-            return;
+      if (!data) {
 
-          }
+        document
+          .getElementById(
+            "peopleCount"
+          )
+          .textContent =
+          "0";
 
-
-          /* ====================================
-             現在人数
-             ==================================== */
-
-          const people =
-            Number(
-              data.peopleCount || 0
-            );
-
-
-          document
-            .getElementById("peopleCount")
-            .textContent =
-            people;
-
-
-          /* ====================================
-             混雑状態更新
-             ==================================== */
-
-          updateStatus(
-            people
-          );
-
-
-          /* ====================================
-             更新時間
-             ==================================== */
-
-          if (
-            data.updatedAt
-          ) {
-
-            const date =
-              new Date(
-                data.updatedAt
-              );
-
-
-            document
-              .getElementById("updateTime")
-              .textContent =
-              date.toLocaleTimeString();
-
-          }
-
-        },
-
-        function(error) {
-
-          console.error(
-            "Firebaseエラー:",
-            error
-          );
-
-
-          document
-            .getElementById("firebaseStatus")
-            .textContent =
-            "接続エラー";
-
-
-          document
-            .getElementById("firebaseStatus")
-            .className =
-            "ng";
-
-        }
-
-      );
-
-
-    }
-
-    catch (error) {
-
-      console.error(
-        "Firebase初期化エラー:",
-        error
-      );
-
-
-      document
-        .getElementById("firebaseStatus")
-        .textContent =
-        "接続エラー";
-
-
-      document
-        .getElementById("firebaseStatus")
-        .className =
-        "ng";
-
-    }
-
-
-    /* ==========================================
-       混雑状態を変更
-       ========================================== */
-
-    function updateStatus(
-      people
-    ) {
-
-
-      const icon =
-        document.getElementById(
-          "statusIcon"
-        );
-
-
-      const text =
-        document.getElementById(
-          "statusText"
-        );
-
-
-      const description =
-        document.getElementById(
-          "statusDescription"
-        );
-
-
-      /* ========================================
-         空いている
-         ======================================== */
-
-      if (
-        people < YELLOW_LIMIT
-      ) {
-
-        icon.textContent =
-          "🟢";
-
-
-        text.textContent =
-          "空いています";
-
-
-        description.textContent =
-          "今は比較的空いています";
-
-
-        text.className =
-          "status-text green";
-
+        return;
       }
 
 
-      /* ========================================
-         やや混雑
-         ======================================== */
+      /* 現在人数 */
 
-      else if (
-        people < RED_LIMIT
-      ) {
-
-        icon.textContent =
-          "🟡";
+      const count =
+        Number(
+          data.peopleCount || 0
+        );
 
 
-        text.textContent =
-          "やや混雑";
+      document
+        .getElementById(
+          "peopleCount"
+        )
+        .textContent =
+        count;
 
 
-        description.textContent =
-          "少し混雑しています";
+      /* 入室 */
+
+      document
+        .getElementById(
+          "enteredCount"
+        )
+        .textContent =
+        Number(
+          data.enteredCount || 0
+        ) + "人";
 
 
-        text.className =
-          "status-text yellow";
+      /* 退出 */
+
+      document
+        .getElementById(
+          "exitedCount"
+        )
+        .textContent =
+        Number(
+          data.exitedCount || 0
+        ) + "人";
+
+
+      /* 混雑表示 */
+
+      const congestion =
+        document.getElementById(
+          "congestion"
+        );
+
+
+      congestion.className =
+        "congestion";
+
+
+      if (count < 10) {
+
+        congestion.classList.add(
+          "empty"
+        );
+
+        congestion.textContent =
+          "🟢 空いています";
 
       }
 
+      else if (count < 20) {
 
-      /* ========================================
-         混雑
-         ======================================== */
+        congestion.classList.add(
+          "normal"
+        );
+
+        congestion.textContent =
+          "🟡 やや混雑しています";
+
+      }
 
       else {
 
-        icon.textContent =
-          "🔴";
+        congestion.classList.add(
+          "crowded"
+        );
 
-
-        text.textContent =
-          "混雑しています";
-
-
-        description.textContent =
-          "現在かなり混雑しています";
-
-
-        text.className =
-          "status-text red";
+        congestion.textContent =
+          "🔴 混雑しています";
 
       }
 
+
+      /* 更新時刻 */
+
+      if (data.updatedAt) {
+
+        const date =
+          new Date(
+            data.updatedAt
+          );
+
+        document
+          .getElementById(
+            "updateTime"
+          )
+          .textContent =
+          date.toLocaleTimeString(
+            "ja-JP"
+          );
+
+      }
+
+    },
+
+    function(error) {
+
+      console.error(
+        "Firebaseエラー:",
+        error
+      );
+
+      document
+        .getElementById(
+          "firebaseStatus"
+        )
+        .textContent =
+        "接続エラー";
+
+      document
+        .getElementById(
+          "firebaseStatus"
+        )
+        .className =
+        "disconnected";
+
+      document
+        .getElementById(
+          "connectionError"
+        )
+        .textContent =
+        "Firebaseからデータを取得できません。";
+
     }
 
+  );
 
-  </script>
 
+}
+
+catch(error) {
+
+  console.error(
+    "Firebase初期化エラー:",
+    error
+  );
+
+  document
+    .getElementById(
+      "firebaseStatus"
+    )
+    .textContent =
+    "接続エラー";
+
+  document
+    .getElementById(
+      "firebaseStatus"
+    )
+    .className =
+    "disconnected";
+
+}
+
+</script>
 
 </body>
-
 </html>
