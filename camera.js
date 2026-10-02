@@ -1,162 +1,225 @@
-/*
- * AI人数管理システム camera.js
- * 修正版
- *
- * 修正ポイント
- * 1. カメラ表示とAI座標の変換を統一
- * 2. 人物追跡を強化（予測位置・動的距離・一時的な検出欠落に対応）
- * 3. A→B→C の入室を安定化
- * 4. C→B→A / C→A の退出を安定化
- * 5. 境界付近のゾーン判定を数フレーム確認
- * 6. 同じ人の二重カウントを防止
- * 7. Firebaseへの送信を間引き
- * 8. people/reset を監視してリモートリセット対応
- *
- * Firebase側で camera.html が以下を用意している想定:
- * window.firebaseDB
- * window.firebaseRef
- * window.firebaseSet
- * window.firebaseOnValue
- * window.firebaseReady
- *
- * データ:
- * people/current
- * people/reset
- */
+========================================================
+*/
 
 let video;
 let model = null;
-let modelReady = false;
+
 let cameraReady = false;
+let modelReady = false;
 let detecting = false;
 
-const CAMERA_W = 1280;
-const CAMERA_H = 720;
+let predictions = [];
+let people = [];
 
-// AI判定
-const PERSON_CONFIDENCE = 0.45;
+let nextPersonId = 1;
 
-// 人物追跡
-const MATCH_DISTANCE = 260;
-const MAX_MATCH_DISTANCE = 420;
-const TRACK_TIMEOUT = 9000;
-const MAX_MISSED_FRAMES = 45;
+// -----------------------------
+// カメラ設定
+// -----------------------------
+const CAMERA_WIDTH = 1280;
+const CAMERA_HEIGHT = 720;
 
-// ゾーン判定
-const ZONE_A_END = 0.33;
-const ZONE_B_END = 0.66;
+// -----------------------------
+// AI設定
+// -----------------------------
+const PERSON_SCORE = 0.40;
+const DETECT_INTERVAL = 120;
+
+// -----------------------------
+// トラッキング設定
+// -----------------------------
+const BASE_MATCH_DISTANCE = 220;
+const MAX_MATCH_DISTANCE = 500;
+
+const MAX_MISSED_FRAMES = 50;
+const TRACK_TIMEOUT = 10000;
+
+// -----------------------------
+// ゾーン
+// -----------------------------
+const ZONE_A_END = 1 / 3;
+const ZONE_B_END = 2 / 3;
+
 const ZONE_CONFIRM_FRAMES = 2;
 
-// 検出間隔
-const DETECT_INTERVAL = 100;
-let lastDetectTime = 0;
-
-// Firebase送信
-const FIREBASE_SEND_INTERVAL = 350;
-let lastFirebaseSendTime = 0;
-let firebaseSendQueued = false;
-
+// -----------------------------
 // カウント
+// -----------------------------
 let currentPeopleCount = 0;
 let enteredCount = 0;
 let exitedCount = 0;
 
-// 表示用
-let predictions = [];
-let tracks = [];
-let nextTrackId = 1;
+// -----------------------------
+// Firebase
+// -----------------------------
+const FIREBASE_CURRENT_PATH = "people/current";
+const FIREBASE_RESET_PATH = "people/reset";
 
+let firebaseListenerStarted = false;
+let lastFirebaseWrite = 0;
+let firebaseWriteTimer = null;
+let lastPayloadString = "";
+
+const FIREBASE_WRITE_INTERVAL = 300;
+
+// -----------------------------
+// リセット
+// -----------------------------
 let lastResetTime = 0;
-let lastPayload = "";
+
+// -----------------------------
+// デバッグ
+// -----------------------------
+let eventLogs = [];
+const MAX_EVENT_LOGS = 8;
+
+
+/* ======================================================
+   setup
+====================================================== */
 
 function setup() {
-  const canvas = createCanvas(CAMERA_W, CAMERA_H);
-  canvas.parent("app");
+  const canvas = createCanvas(CAMERA_WIDTH, CAMERA_HEIGHT);
 
-  textFont("sans-serif");
+  if (document.getElementById("app")) {
+    canvas.parent("app");
+  } else if (document.getElementById("sketch-holder")) {
+    canvas.parent("sketch-holder");
+  }
+
+  textFont("Arial");
 
   video = createCapture(
     {
       video: {
-        facingMode: { ideal: "environment" },
-        width: { ideal: CAMERA_W },
-        height: { ideal: CAMERA_H }
+        facingMode: {
+          ideal: "environment"
+        },
+        width: {
+          ideal: CAMERA_WIDTH
+        },
+        height: {
+          ideal: CAMERA_HEIGHT
+        }
       },
       audio: false
     },
-    () => {
-      cameraReady = true;
-      console.log("カメラ準備完了");
-      startModel();
-    }
+    onCameraReady
   );
 
-  video.size(CAMERA_W, CAMERA_H);
+  video.size(CAMERA_WIDTH, CAMERA_HEIGHT);
   video.hide();
 
-  // Firebaseの準備を待つ
-  waitForFirebase();
+  addEventLog("camera.js 起動");
 }
 
-async function startModel() {
+
+/* ======================================================
+   カメラ準備完了
+====================================================== */
+
+function onCameraReady() {
+  cameraReady = true;
+
+  addEventLog("カメラ準備完了");
+
+  loadModel();
+}
+
+
+/* ======================================================
+   AIモデル
+====================================================== */
+
+async function loadModel() {
   try {
-    console.log("COCO-SSD読み込み中...");
+    addEventLog("AIモデル読み込み中");
+
     model = await cocoSsd.load();
+
     modelReady = true;
-    console.log("COCO-SSD準備完了");
+
+    addEventLog("AIモデル準備完了");
+
   } catch (error) {
-    console.error("モデル読み込み失敗:", error);
+
+    console.error(error);
+
+    addEventLog("AIモデル読み込み失敗");
   }
 }
 
+
+/* ======================================================
+   draw
+====================================================== */
+
 function draw() {
+
   background(0);
 
-  if (cameraReady && video) {
+  if (cameraReady) {
     drawCamera();
   } else {
-    drawMessage("カメラ準備中...");
+    drawCenterMessage("カメラ準備中...");
   }
 
   drawZones();
-  drawPersonBoxes();
-  drawStatus();
 
-  const now = performance.now();
+  drawPeople();
+
+  drawInformation();
+
+  drawEventLog();
+
+  setupFirebaseListener();
+
+  const now = millis();
 
   if (
     cameraReady &&
     modelReady &&
     model &&
     !detecting &&
-    now - lastDetectTime >= DETECT_INTERVAL
+    now - lastDetectionTime >= DETECT_INTERVAL
   ) {
-    lastDetectTime = now;
+    lastDetectionTime = now;
+
     detectPeople();
   }
-
-  // Firebaseの接続待ち・リセット監視
-  setupFirebaseHooks();
 }
 
-/* =========================================================
- * カメラ表示
- * ========================================================= */
 
-function getCameraTransform() {
-  if (!video || !video.elt || !video.elt.videoWidth || !video.elt.videoHeight) {
+let lastDetectionTime = 0;
+
+
+/* ======================================================
+   カメラ表示
+   AI座標と表示座標を同じ変換にする
+====================================================== */
+
+function getVideoTransform() {
+
+  const videoElement = video && video.elt;
+
+  if (
+    !videoElement ||
+    !videoElement.videoWidth ||
+    !videoElement.videoHeight
+  ) {
+
     return {
-      scaleX: width / CAMERA_W,
-      scaleY: height / CAMERA_H,
+      videoWidth: CAMERA_WIDTH,
+      videoHeight: CAMERA_HEIGHT,
+      scaleX: width / CAMERA_WIDTH,
+      scaleY: height / CAMERA_HEIGHT,
       offsetX: 0,
-      offsetY: 0,
-      videoWidth: CAMERA_W,
-      videoHeight: CAMERA_H
+      offsetY: 0
     };
   }
 
-  const videoWidth = video.elt.videoWidth;
-  const videoHeight = video.elt.videoHeight;
+  const videoWidth = videoElement.videoWidth;
+  const videoHeight = videoElement.videoHeight;
 
   const videoRatio = videoWidth / videoHeight;
   const canvasRatio = width / height;
@@ -166,46 +229,57 @@ function getCameraTransform() {
   let offsetX;
   let offsetY;
 
-  // drawCamera() とAI枠描画で同じ変換を使う
   if (videoRatio > canvasRatio) {
+
     drawHeight = height;
     drawWidth = height * videoRatio;
+
     offsetX = (width - drawWidth) / 2;
     offsetY = 0;
+
   } else {
+
     drawWidth = width;
     drawHeight = width / videoRatio;
+
     offsetX = 0;
     offsetY = (height - drawHeight) / 2;
   }
 
   return {
+    videoWidth,
+    videoHeight,
+
     scaleX: drawWidth / videoWidth,
     scaleY: drawHeight / videoHeight,
+
     offsetX,
-    offsetY,
-    videoWidth,
-    videoHeight
+    offsetY
   };
 }
 
+
 function drawCamera() {
-  const t = getCameraTransform();
+
+  const t = getVideoTransform();
 
   image(
     video,
     t.offsetX,
     t.offsetY,
-    width - t.offsetX * 2,
-    height - t.offsetY * 2
+    video.width * t.scaleX,
+    video.height * t.scaleY
   );
 }
 
-/*
- * AIのvideo座標 → 画面座標
- */
-function videoToCanvas(x, y) {
-  const t = getCameraTransform();
+
+/* ======================================================
+   AI座標 → 画面座標
+====================================================== */
+
+function videoPointToCanvas(x, y) {
+
+  const t = getVideoTransform();
 
   return {
     x: x * t.scaleX + t.offsetX,
@@ -213,484 +287,1118 @@ function videoToCanvas(x, y) {
   };
 }
 
-/*
- * 画面座標 → AI/video座標
- */
-function canvasToVideo(x, y) {
-  const t = getCameraTransform();
 
-  return {
-    x: (x - t.offsetX) / t.scaleX,
-    y: (y - t.offsetY) / t.scaleY
-  };
-}
-
-/* =========================================================
- * AI検出
- * ========================================================= */
+/* ======================================================
+   人物検出
+====================================================== */
 
 async function detectPeople() {
-  if (!model || !video || !video.elt || detecting) return;
+
+  if (
+    detecting ||
+    !model ||
+    !video ||
+    !video.elt
+  ) {
+    return;
+  }
 
   detecting = true;
 
   try {
+
     const result = await model.detect(video.elt);
 
     const persons = result.filter(
-      p => p.class === "person" && p.score >= PERSON_CONFIDENCE
+      item =>
+        item.class === "person" &&
+        item.score >= PERSON_SCORE
     );
 
     predictions = persons;
 
-    updateTracks(persons);
+    updatePeopleTracking(persons);
+
   } catch (error) {
-    console.error("人物検出エラー:", error);
+
+    console.error("detectPeople error:", error);
+
   } finally {
+
     detecting = false;
   }
 }
 
-/* =========================================================
- * トラッキング
- * ========================================================= */
 
-function createPersonTrack(detection, zone) {
+/* ======================================================
+   人物track作成
+====================================================== */
+
+function createPersonTrack(detection) {
+
   const [x, y, w, h] = detection.bbox;
 
+  const centerX = x + w / 2;
+  const centerY = y + h / 2;
+
+  const zone = getZone(centerX);
+
   return {
-    id: nextTrackId++,
+
+    id: nextPersonId++,
 
     x,
     y,
     w,
     h,
 
-    centerX: x + w / 2,
-    centerY: y + h / 2,
+    centerX,
+    centerY,
 
-    prevCenterX: x + w / 2,
-    prevCenterY: y + h / 2,
+    previousCenterX: centerX,
+    previousCenterY: centerY,
 
     velocityX: 0,
     velocityY: 0,
 
     lastSeen: Date.now(),
+
     missedFrames: 0,
 
-    currentZone: zone,
+    age: 1,
+
+    zone,
+
     previousZone: zone,
 
     pendingZone: zone,
     pendingZoneFrames: 0,
 
-    inside: false,
-
-    // 入室: A → B → C
+    // 入室進行:
+    // 0 = 未開始
+    // 1 = A
+    // 2 = B
     entryProgress: zone === "A" ? 1 : 0,
 
-    // 退出:
-    // Cを通過したらpassedC=true
-    // その後Aへ到達したら退出
+    // 退出関連
+    inside: false,
     passedC: zone === "C",
+
     exitState: zone === "C" ? 1 : 0,
 
     exitCounted: false,
 
-    // 直近のカウント時刻
-    lastCountTime: 0,
-
-    // 追跡安定化
-    age: 1,
-    matchedThisFrame: true
+    lastStateChange: Date.now()
   };
 }
 
-function getTrackPredictedPosition(track) {
-  const elapsed = Math.min(
-    (Date.now() - track.lastSeen) / 1000,
-    1.5
-  );
 
-  return {
-    x: track.centerX + track.velocityX * elapsed,
-    y: track.centerY + track.velocityY * elapsed
-  };
-}
+/* ======================================================
+   track更新
+====================================================== */
 
-function getDistance(aX, aY, bX, bY) {
-  return Math.hypot(aX - bX, aY - bY);
-}
+function updatePeopleTracking(detections) {
 
-function getDynamicMatchDistance(track, detection) {
-  const [, , w, h] = detection.bbox;
-
-  // 人物サイズが大きいほど画面上の移動差も大きくなる
-  const personSize = Math.max(w, h);
-
-  const dynamicDistance =
-    MATCH_DISTANCE +
-    personSize * 0.45 +
-    Math.min(track.missedFrames, 10) * 18;
-
-  return Math.min(dynamicDistance, MAX_MATCH_DISTANCE);
-}
-
-function updateTracks(detections) {
   const now = Date.now();
 
-  for (const track of tracks) {
-    track.matchedThisFrame = false;
-  }
+  const matchedTrackIds = new Set();
+  const matchedDetectionIndexes = new Set();
 
   const candidates = [];
 
-  for (let di = 0; di < detections.length; di++) {
-    const detection = detections[di];
+  // -----------------------------------------------
+  // 全組み合わせの距離を計算
+  // -----------------------------------------------
+
+  for (
+    let detectionIndex = 0;
+    detectionIndex < detections.length;
+    detectionIndex++
+  ) {
+
+    const detection = detections[detectionIndex];
+
     const [x, y, w, h] = detection.bbox;
 
     const centerX = x + w / 2;
     const centerY = y + h / 2;
 
-    for (let ti = 0; ti < tracks.length; ti++) {
-      const track = tracks[ti];
+    for (
+      let trackIndex = 0;
+      trackIndex < people.length;
+      trackIndex++
+    ) {
 
-      if (track.matchedThisFrame) continue;
+      const person = people[trackIndex];
 
-      const predicted = getTrackPredictedPosition(track);
-      const distance = getDistance(
+      if (matchedTrackIds.has(person.id)) {
+        continue;
+      }
+
+      const predicted = predictPosition(person);
+
+      const distance = distanceBetween(
         centerX,
         centerY,
         predicted.x,
         predicted.y
       );
 
-      const limit = getDynamicMatchDistance(track, detection);
+      const allowedDistance =
+        getAllowedMatchDistance(person, w, h);
 
-      if (distance <= limit) {
+      if (distance <= allowedDistance) {
+
         candidates.push({
-          detectionIndex: di,
-          trackIndex: ti,
+          detectionIndex,
+          trackIndex,
           distance
         });
       }
     }
   }
 
-  // 近い組み合わせから確定
-  candidates.sort((a, b) => a.distance - b.distance);
+  // -----------------------------------------------
+  // 最も近いものからマッチ
+  // -----------------------------------------------
 
-  const matchedDetections = new Set();
-  const matchedTracks = new Set();
+  candidates.sort(
+    (a, b) => a.distance - b.distance
+  );
 
   for (const candidate of candidates) {
+
     if (
-      matchedDetections.has(candidate.detectionIndex) ||
-      matchedTracks.has(candidate.trackIndex)
+      matchedDetectionIndexes.has(
+        candidate.detectionIndex
+      )
     ) {
       continue;
     }
 
-    const detection = detections[candidate.detectionIndex];
-    const track = tracks[candidate.trackIndex];
+    const person =
+      people[candidate.trackIndex];
 
-    updateExistingTrack(track, detection, now);
+    if (matchedTrackIds.has(person.id)) {
+      continue;
+    }
 
-    matchedDetections.add(candidate.detectionIndex);
-    matchedTracks.add(candidate.trackIndex);
+    updateExistingPerson(
+      person,
+      detections[candidate.detectionIndex],
+      now
+    );
+
+    matchedDetectionIndexes.add(
+      candidate.detectionIndex
+    );
+
+    matchedTrackIds.add(person.id);
   }
 
-  // マッチしなかった検出は新しいtrack
-  for (let i = 0; i < detections.length; i++) {
-    if (matchedDetections.has(i)) continue;
+  // -----------------------------------------------
+  // 新規人物
+  // -----------------------------------------------
 
-    const detection = detections[i];
-    const zone = getZoneFromDetection(detection);
+  for (
+    let i = 0;
+    i < detections.length;
+    i++
+  ) {
 
-    const track = createPersonTrack(detection, zone);
-    tracks.push(track);
+    if (matchedDetectionIndexes.has(i)) {
+      continue;
+    }
+
+    const person =
+      createPersonTrack(detections[i]);
+
+    people.push(person);
+
+    addEventLog(
+      `新規ID ${person.id} / ${person.zone}`
+    );
   }
 
-  // 一時的に検出が消えた人をすぐ削除しない
-  for (const track of tracks) {
-    if (!matchedTracks.has(tracks.indexOf(track))) {
-      track.missedFrames++;
+  // -----------------------------------------------
+  // 未検出track
+  // -----------------------------------------------
+
+  for (const person of people) {
+
+    if (!matchedTrackIds.has(person.id)) {
+
+      person.missedFrames++;
+
+      // 速度を少しずつ減衰
+      person.velocityX *= 0.85;
+      person.velocityY *= 0.85;
     }
   }
 
-  // 古すぎるtrackだけ削除
-  tracks = tracks.filter(track => {
-    const elapsed = now - track.lastSeen;
+  // -----------------------------------------------
+  // 古いtrackを削除
+  // -----------------------------------------------
+
+  const before = people.length;
+
+  people = people.filter(person => {
+
+    const elapsed =
+      Date.now() - person.lastSeen;
 
     return (
       elapsed < TRACK_TIMEOUT &&
-      track.missedFrames <= MAX_MISSED_FRAMES
+      person.missedFrames <= MAX_MISSED_FRAMES
     );
   });
+
+  if (before !== people.length) {
+
+    addEventLog("古いtrackを削除");
+  }
+
+  queueFirebaseWrite();
 }
 
-function updateExistingTrack(track, detection, now) {
-  const [x, y, w, h] = detection.bbox;
 
-  const newCenterX = x + w / 2;
-  const newCenterY = y + h / 2;
+/* ======================================================
+   既存track更新
+====================================================== */
 
-  const dt = Math.max(
-    (now - track.lastSeen) / 1000,
-    0.05
+function updateExistingPerson(
+  person,
+  detection,
+  now
+) {
+
+  const [x, y, w, h] =
+    detection.bbox;
+
+  const centerX =
+    x + w / 2;
+
+  const centerY =
+    y + h / 2;
+
+  const elapsed =
+    Math.max(
+      (now - person.lastSeen) / 1000,
+      0.05
+    );
+
+  const newVelocityX =
+    (centerX - person.centerX) /
+    elapsed;
+
+  const newVelocityY =
+    (centerY - person.centerY) /
+    elapsed;
+
+  // 急激な速度変化を抑える
+  person.velocityX =
+    person.velocityX * 0.70 +
+    newVelocityX * 0.30;
+
+  person.velocityY =
+    person.velocityY * 0.70 +
+    newVelocityY * 0.30;
+
+  person.previousCenterX =
+    person.centerX;
+
+  person.previousCenterY =
+    person.centerY;
+
+  person.x = x;
+  person.y = y;
+  person.w = w;
+  person.h = h;
+
+  person.centerX = centerX;
+  person.centerY = centerY;
+
+  person.lastSeen = now;
+
+  person.missedFrames = 0;
+
+  person.age++;
+
+  const detectedZone =
+    getZone(centerX);
+
+  updateStableZone(
+    person,
+    detectedZone
   );
-
-  const rawVX = (newCenterX - track.centerX) / dt;
-  const rawVY = (newCenterY - track.centerY) / dt;
-
-  // 急激なノイズを抑える
-  track.velocityX =
-    track.velocityX * 0.65 + rawVX * 0.35;
-
-  track.velocityY =
-    track.velocityY * 0.65 + rawVY * 0.35;
-
-  track.prevCenterX = track.centerX;
-  track.prevCenterY = track.centerY;
-
-  track.x = x;
-  track.y = y;
-  track.w = w;
-  track.h = h;
-
-  track.centerX = newCenterX;
-  track.centerY = newCenterY;
-
-  track.lastSeen = now;
-  track.missedFrames = 0;
-  track.age++;
-  track.matchedThisFrame = true;
-
-  const newZone = getZoneFromX(track.centerX);
-
-  updateStableZone(track, newZone);
 }
 
-/* =========================================================
- * ゾーン
- * ========================================================= */
 
-function getZoneFromX(x) {
+/* ======================================================
+   予測位置
+====================================================== */
+
+function predictPosition(person) {
+
+  const elapsed =
+    Math.min(
+      (Date.now() - person.lastSeen) / 1000,
+      1.2
+    );
+
+  return {
+
+    x:
+      person.centerX +
+      person.velocityX * elapsed,
+
+    y:
+      person.centerY +
+      person.velocityY * elapsed
+  };
+}
+
+
+/* ======================================================
+   マッチ距離
+====================================================== */
+
+function getAllowedMatchDistance(
+  person,
+  width,
+  height
+) {
+
+  const size =
+    Math.max(width, height);
+
+  const missedBonus =
+    person.missedFrames * 25;
+
+  const sizeBonus =
+    size * 0.45;
+
+  return Math.min(
+    MAX_MATCH_DISTANCE,
+    BASE_MATCH_DISTANCE +
+    sizeBonus +
+    missedBonus
+  );
+}
+
+
+/* ======================================================
+   距離
+====================================================== */
+
+function distanceBetween(
+  ax,
+  ay,
+  bx,
+  by
+) {
+
+  return Math.hypot(
+    ax - bx,
+    ay - by
+  );
+}
+
+
+/* ======================================================
+   ゾーン
+====================================================== */
+
+function getZone(x) {
+
   const videoWidth =
-    video && video.elt && video.elt.videoWidth
+    video &&
+    video.elt &&
+    video.elt.videoWidth
       ? video.elt.videoWidth
-      : CAMERA_W;
+      : CAMERA_WIDTH;
 
-  const ratio = x / videoWidth;
+  const ratio =
+    x / videoWidth;
 
-  if (ratio < ZONE_A_END) return "A";
-  if (ratio < ZONE_B_END) return "B";
+  if (ratio < ZONE_A_END) {
+    return "A";
+  }
+
+  if (ratio < ZONE_B_END) {
+    return "B";
+  }
+
   return "C";
 }
 
-function getZoneFromDetection(detection) {
-  const [x, , w] = detection.bbox;
-  return getZoneFromX(x + w / 2);
-}
 
-function updateStableZone(track, newZone) {
-  if (newZone === track.currentZone) {
-    track.pendingZone = newZone;
-    track.pendingZoneFrames = 0;
+/* ======================================================
+   ゾーン安定化
+====================================================== */
+
+function updateStableZone(
+  person,
+  newZone
+) {
+
+  if (newZone === person.zone) {
+
+    person.pendingZone = newZone;
+    person.pendingZoneFrames = 0;
+
     return;
   }
 
-  if (newZone !== track.pendingZone) {
-    track.pendingZone = newZone;
-    track.pendingZoneFrames = 1;
+  if (
+    newZone !==
+    person.pendingZone
+  ) {
+
+    person.pendingZone =
+      newZone;
+
+    person.pendingZoneFrames = 1;
+
     return;
   }
 
-  track.pendingZoneFrames++;
+  person.pendingZoneFrames++;
 
-  if (track.pendingZoneFrames >= ZONE_CONFIRM_FRAMES) {
-    const oldZone = track.currentZone;
+  if (
+    person.pendingZoneFrames >=
+    ZONE_CONFIRM_FRAMES
+  ) {
 
-    track.previousZone = oldZone;
-    track.currentZone = newZone;
-    track.pendingZoneFrames = 0;
+    const oldZone =
+      person.zone;
 
-    handleZoneTransition(track, oldZone, newZone);
+    person.previousZone =
+      oldZone;
+
+    person.zone =
+      newZone;
+
+    person.pendingZoneFrames = 0;
+
+    handleZoneChange(
+      person,
+      oldZone,
+      newZone
+    );
   }
 }
 
-function handleZoneTransition(track, oldZone, newZone) {
-  console.log(
-    `ID ${track.id}: ${oldZone} → ${newZone}`,
-    "inside=", track.inside,
-    "entry=", track.entryProgress,
-    "passedC=", track.passedC
+
+/* ======================================================
+   ゾーン移動
+====================================================== */
+
+function handleZoneChange(
+  person,
+  oldZone,
+  newZone
+) {
+
+  addEventLog(
+    `ID${person.id}: ${oldZone}→${newZone}`
   );
 
-  checkEntry(track, oldZone, newZone);
-  checkExit(track, oldZone, newZone);
+  console.log(
+    "ZONE",
+    person.id,
+    oldZone,
+    "→",
+    newZone,
+    "inside:",
+    person.inside,
+    "entry:",
+    person.entryProgress,
+    "passedC:",
+    person.passedC
+  );
+
+  // 重要:
+  // 先に退出を確認
+  // その後に入室を確認
+  checkExit(
+    person,
+    oldZone,
+    newZone
+  );
+
+  checkEntry(
+    person,
+    oldZone,
+    newZone
+  );
 }
 
-/* =========================================================
- * 入室
- * ========================================================= */
 
-function checkEntry(track, oldZone, newZone) {
-  // すでに中にいる人は入室処理しない
-  if (track.inside) return;
+/* ======================================================
+   入室判定
+
+   A → B → C
+====================================================== */
+
+function checkEntry(
+  person,
+  oldZone,
+  newZone
+) {
+
+  // すでに中なら入室しない
+  if (person.inside) {
+    return;
+  }
 
   // Aに入った
   if (newZone === "A") {
-    track.entryProgress = 1;
+
+    person.entryProgress = 1;
+
     return;
   }
 
   // A → B
   if (
-    track.entryProgress === 1 &&
+    person.entryProgress === 1 &&
     newZone === "B"
   ) {
-    track.entryProgress = 2;
+
+    person.entryProgress = 2;
+
+    addEventLog(
+      `ID${person.id}: A→B`
+    );
+
     return;
   }
 
-  // B → C で入室
+  // B → C
   if (
-    track.entryProgress >= 2 &&
+    person.entryProgress >= 2 &&
     newZone === "C"
   ) {
-    executeEntry(track);
+
+    enterPerson(person);
+
     return;
   }
 
-  // 逆方向・やり直し
+  /*
+   * もしBから直接Aへ戻った場合は、
+   * もう一度Aからやり直す
+   */
   if (newZone === "A") {
-    track.entryProgress = 1;
+
+    person.entryProgress = 1;
   }
 }
 
-function executeEntry(track) {
-  if (track.inside) return;
 
-  track.inside = true;
-  track.entryProgress = 0;
-  track.passedC = false;
-  track.exitState = 0;
-  track.exitCounted = false;
-  track.lastCountTime = Date.now();
+/* ======================================================
+   入室確定
+====================================================== */
 
-  enteredCount++;
+function enterPerson(person) {
+
+  if (person.inside) {
+    return;
+  }
+
+  person.inside = true;
+
+  person.entryProgress = 0;
+
+  person.passedC = false;
+
+  person.exitState = 0;
+
+  person.exitCounted = false;
+
   currentPeopleCount++;
 
-  console.log(
-    `入室カウント ID=${track.id}`,
-    "現在人数=", currentPeopleCount
+  enteredCount++;
+
+  person.lastStateChange =
+    Date.now();
+
+  addEventLog(
+    `★入室 ID${person.id} / 現在${currentPeopleCount}`
   );
 
-  queueFirebaseSend();
+  console.log(
+    "========== 入室 ==========",
+    person.id,
+    currentPeopleCount
+  );
+
+  queueFirebaseWrite();
 }
 
-/* =========================================================
- * 退出
- * ========================================================= */
 
-function checkExit(track, oldZone, newZone) {
-  // 中にいる人だけ退出候補
-  if (!track.inside) return;
+/* ======================================================
+   退出判定
 
-  // Cに到達したら退出ルート開始
+   基本:
+   C → B → A
+
+   直接:
+   C → A
+====================================================== */
+
+function checkExit(
+  person,
+  oldZone,
+  newZone
+) {
+
+  if (!person.inside) {
+    return;
+  }
+
+  // Cに到達した
   if (newZone === "C") {
-    track.passedC = true;
-    track.exitState = 1;
+
+    person.passedC = true;
+
+    person.exitState = 1;
+
+    addEventLog(
+      `ID${person.id}: C通過`
+    );
+
     return;
   }
 
   // C → B
   if (
-    track.passedC &&
+    person.passedC &&
     oldZone === "C" &&
     newZone === "B"
   ) {
-    track.exitState = 2;
+
+    person.exitState = 2;
+
+    addEventLog(
+      `ID${person.id}: C→B`
+    );
+
     return;
   }
 
   // C → A
   if (
-    track.passedC &&
+    person.passedC &&
     newZone === "A"
   ) {
-    executeExit(track);
+
+    exitPerson(person);
+
     return;
   }
 
-  // Cを通過したあとBからAへ
+  // Cを通過後、B→A
   if (
-    track.passedC &&
-    track.exitState >= 2 &&
+    person.passedC &&
+    person.exitState >= 2 &&
     newZone === "A"
   ) {
-    executeExit(track);
+
+    exitPerson(person);
+
     return;
   }
 }
 
-function executeExit(track) {
-  if (!track.inside) return;
-  if (track.exitCounted) return;
 
-  track.exitCounted = true;
+/* ======================================================
+   退出確定
+====================================================== */
+
+function exitPerson(person) {
+
+  if (!person.inside) {
+    return;
+  }
+
+  if (person.exitCounted) {
+    return;
+  }
+
+  person.exitCounted = true;
+
+  currentPeopleCount =
+    Math.max(
+      0,
+      currentPeopleCount - 1
+    );
 
   exitedCount++;
 
-  currentPeopleCount = Math.max(
-    0,
-    currentPeopleCount - 1
-  );
+  person.inside = false;
 
-  track.inside = false;
-  track.passedC = false;
-  track.exitState = 0;
-  track.entryProgress = 0;
-  track.lastCountTime = Date.now();
+  person.passedC = false;
+
+  person.exitState = 0;
+
+  person.entryProgress = 0;
+
+  person.lastStateChange =
+    Date.now();
+
+  addEventLog(
+    `★退出 ID${person.id} / 現在${currentPeopleCount}`
+  );
 
   console.log(
-    `退出カウント ID=${track.id}`,
-    "現在人数=", currentPeopleCount
+    "========== 退出 ==========",
+    person.id,
+    currentPeopleCount
   );
 
-  queueFirebaseSend();
+  queueFirebaseWrite();
 }
 
-/* =========================================================
- * Firebase
- * ========================================================= */
 
-let firebaseHooksReady = false;
+/* ======================================================
+   描画: ゾーン
+====================================================== */
 
-function waitForFirebase() {
-  setupFirebaseHooks();
+function drawZones() {
+
+  const aX =
+    width * ZONE_A_END;
+
+  const bX =
+    width * ZONE_B_END;
+
+  stroke(255, 255, 0);
+  strokeWeight(3);
+
+  line(
+    aX,
+    0,
+    aX,
+    height
+  );
+
+  line(
+    bX,
+    0,
+    bX,
+    height
+  );
+
+  noStroke();
+
+  fill(255);
+
+  textAlign(
+    CENTER,
+    TOP
+  );
+
+  textSize(34);
+
+  text(
+    "A",
+    aX / 2,
+    15
+  );
+
+  text(
+    "B",
+    (aX + bX) / 2,
+    15
+  );
+
+  text(
+    "C",
+    (bX + width) / 2,
+    15
+  );
 }
 
-function setupFirebaseHooks() {
-  if (firebaseHooksReady) return;
 
-  if (
-    window.firebaseDB &&
-    window.firebaseRef &&
-    window.firebaseOnValue
-  ) {
-    firebaseHooksReady = true;
+/* ======================================================
+   描画: 人物
+====================================================== */
 
-    setupResetListener();
+function drawPeople() {
 
-    console.log("Firebase hooks 準備完了");
+  for (const person of people) {
 
-    queueFirebaseSend();
+    let x = person.x;
+    let y = person.y;
+
+    // 一時的に検出できない場合は予測位置
+    if (person.missedFrames > 0) {
+
+      const predicted =
+        predictPosition(person);
+
+      x =
+        predicted.x -
+        person.w / 2;
+
+      y =
+        predicted.y -
+        person.h / 2;
+    }
+
+    const topLeft =
+      videoPointToCanvas(
+        x,
+        y
+      );
+
+    const bottomRight =
+      videoPointToCanvas(
+        x + person.w,
+        y + person.h
+      );
+
+    const boxWidth =
+      bottomRight.x -
+      topLeft.x;
+
+    const boxHeight =
+      bottomRight.y -
+      topLeft.y;
+
+    // 緑枠
+    stroke(
+      0,
+      255,
+      80
+    );
+
+    strokeWeight(4);
+
+    noFill();
+
+    rect(
+      topLeft.x,
+      topLeft.y,
+      boxWidth,
+      boxHeight
+    );
+
+    // ID
+    noStroke();
+
+    fill(
+      0,
+      180
+    );
+
+    rect(
+      topLeft.x,
+      Math.max(
+        0,
+        topLeft.y - 68
+      ),
+      270,
+      64
+    );
+
+    fill(255);
+
+    textAlign(
+      LEFT,
+      TOP
+    );
+
+    textSize(20);
+
+    text(
+      `ID ${person.id}  [${person.zone}]`,
+      topLeft.x + 8,
+      Math.max(
+        2,
+        topLeft.y - 63
+      )
+    );
+
+    textSize(17);
+
+    text(
+      person.inside
+        ? "IN / 中にいる"
+        : "WAIT / 未入室",
+      topLeft.x + 8,
+      Math.max(
+        24,
+        topLeft.y - 39
+      )
+    );
+
+    text(
+      `A→B→C:${person.entryProgress}  C:${person.passedC ? "YES" : "NO"}`,
+      topLeft.x + 8,
+      Math.max(
+        46,
+        topLeft.y - 17
+      )
+    );
+
+    // 欠落
+    if (person.missedFrames > 0) {
+
+      fill(255, 255, 0);
+
+      textSize(16);
+
+      text(
+        `追跡中 miss=${person.missedFrames}`,
+        topLeft.x,
+        bottomRight.y + 5
+      );
+    }
   }
 }
 
-function setupResetListener() {
+
+/* ======================================================
+   描画: 情報
+====================================================== */
+
+function drawInformation() {
+
+  noStroke();
+
+  fill(
+    0,
+    180
+  );
+
+  rect(
+    15,
+    height - 155,
+    500,
+    140,
+    8
+  );
+
+  fill(255);
+
+  textAlign(
+    LEFT,
+    TOP
+  );
+
+  textSize(27);
+
+  text(
+    `現在人数: ${currentPeopleCount}`,
+    30,
+    height - 145
+  );
+
+  textSize(20);
+
+  text(
+    `入室: ${enteredCount}   退出: ${exitedCount}`,
+    30,
+    height - 108
+  );
+
+  textSize(17);
+
+  text(
+    `人物検出: ${predictions.length}`,
+    30,
+    height - 80
+  );
+
+  text(
+    `AI: ${modelReady ? "OK" : "待機"}  ` +
+    `Camera: ${cameraReady ? "OK" : "待機"}  ` +
+    `Firebase: ${isFirebaseAvailable() ? "OK" : "待機"}`,
+    30,
+    height - 52
+  );
+}
+
+
+/* ======================================================
+   描画: イベントログ
+====================================================== */
+
+function drawEventLog() {
+
+  noStroke();
+
+  fill(
+    0,
+    150
+  );
+
+  rect(
+    width - 390,
+    height - 225,
+    370,
+    205,
+    8
+  );
+
+  fill(255);
+
+  textAlign(
+    LEFT,
+    TOP
+  );
+
+  textSize(16);
+
+  text(
+    "DEBUG / ZONE LOG",
+    width - 375,
+    height - 210
+  );
+
+  let y =
+    height - 185;
+
+  for (const log of eventLogs) {
+
+    text(
+      log,
+      width - 375,
+      y
+    );
+
+    y += 21;
+  }
+}
+
+
+/* ======================================================
+   Firebase
+====================================================== */
+
+function isFirebaseAvailable() {
+
+  return Boolean(
+    window.firebaseDB &&
+    window.firebaseRef &&
+    window.firebaseSet
+  );
+}
+
+
+/* ======================================================
+   Firebase listener
+====================================================== */
+
+function setupFirebaseListener() {
+
+  if (firebaseListenerStarted) {
+    return;
+  }
+
   if (
     !window.firebaseDB ||
     !window.firebaseRef ||
@@ -699,87 +1407,167 @@ function setupResetListener() {
     return;
   }
 
+  firebaseListenerStarted = true;
+
   try {
+
     const resetRef =
       window.firebaseRef(
         window.firebaseDB,
-        "people/reset"
+        FIREBASE_RESET_PATH
       );
 
     window.firebaseOnValue(
       resetRef,
       snapshot => {
-        const data = snapshot.val();
 
-        if (!data) return;
+        const data =
+          snapshot.val();
 
-        const resetTime = Number(
-          data.time || data.resetAt || 0
-        );
+        if (!data) {
+          return;
+        }
 
         if (
-          data.command === "reset" &&
-          resetTime > lastResetTime
+          data.command !== "reset"
         ) {
-          console.log(
-            "Firebaseからリセット命令を受信",
-            data
+          return;
+        }
+
+        const resetTime =
+          Number(
+            data.time ||
+            data.resetAt ||
+            0
           );
 
-          lastResetTime = resetTime;
-          resetSystem(resetTime);
+        if (
+          resetTime <=
+          lastResetTime
+        ) {
+          return;
         }
+
+        lastResetTime =
+          resetTime;
+
+        addEventLog(
+          "Firebaseリセット受信"
+        );
+
+        resetSystem(
+          resetTime
+        );
       }
     );
+
+    addEventLog(
+      "Firebase reset監視開始"
+    );
+
   } catch (error) {
+
     console.error(
-      "Firebase reset listener error:",
+      "Firebase listener error",
       error
     );
+
+    firebaseListenerStarted = false;
   }
 }
 
-function queueFirebaseSend() {
-  const now = Date.now();
 
-  if (
-    now - lastFirebaseSendTime >=
-    FIREBASE_SEND_INTERVAL
-  ) {
-    sendPeopleData();
+/* ======================================================
+   Firebase送信予約
+====================================================== */
+
+function queueFirebaseWrite() {
+
+  if (!isFirebaseAvailable()) {
     return;
   }
 
-  if (firebaseSendQueued) return;
+  const now =
+    Date.now();
 
-  firebaseSendQueued = true;
+  if (
+    now - lastFirebaseWrite >=
+    FIREBASE_WRITE_INTERVAL
+  ) {
 
-  setTimeout(() => {
-    firebaseSendQueued = false;
     sendPeopleData();
-  }, FIREBASE_SEND_INTERVAL);
+
+    return;
+  }
+
+  if (firebaseWriteTimer) {
+    return;
+  }
+
+  const wait =
+    FIREBASE_WRITE_INTERVAL -
+    (now - lastFirebaseWrite);
+
+  firebaseWriteTimer =
+    setTimeout(
+      () => {
+
+        firebaseWriteTimer = null;
+
+        sendPeopleData();
+
+      },
+      Math.max(
+        50,
+        wait
+      )
+    );
 }
 
-function buildPeoplePayload() {
+
+/* ======================================================
+   Firebase payload
+====================================================== */
+
+function makePeoplePayload() {
+
   return {
-    peopleCount: currentPeopleCount,
-    visiblePeopleCount: tracks.filter(
-      t => t.missedFrames <= 2
-    ).length,
+
+    peopleCount:
+      currentPeopleCount,
+
+    visiblePeopleCount:
+      people.filter(
+        p =>
+          p.missedFrames <= 2
+      ).length,
+
     enteredCount,
+
     exitedCount,
 
     cameraReady,
+
     modelReady,
 
-    camera: "tablet",
-    orientation: "horizontal-ABC",
+    camera:
+      "tablet",
 
-    updatedAt: Date.now()
+    orientation:
+      "horizontal-ABC",
+
+    updatedAt:
+      Date.now()
   };
 }
 
+
+/* ======================================================
+   Firebase送信
+====================================================== */
+
 function sendPeopleData() {
+
   if (
     !window.firebaseDB ||
     !window.firebaseRef ||
@@ -788,237 +1576,260 @@ function sendPeopleData() {
     return;
   }
 
-  const now = Date.now();
+  const payload =
+    makePeoplePayload();
+
+  /*
+   * 比較用にはupdatedAtを除外。
+   * 人数が変わっていない場合に無駄な書き込みを防ぐ。
+   */
+  const comparePayload = {
+    peopleCount:
+      payload.peopleCount,
+
+    visiblePeopleCount:
+      payload.visiblePeopleCount,
+
+    enteredCount:
+      payload.enteredCount,
+
+    exitedCount:
+      payload.exitedCount,
+
+    cameraReady:
+      payload.cameraReady,
+
+    modelReady:
+      payload.modelReady,
+
+    camera:
+      payload.camera,
+
+    orientation:
+      payload.orientation
+  };
+
+  const compareString =
+    JSON.stringify(
+      comparePayload
+    );
 
   if (
-    now - lastFirebaseSendTime <
-    FIREBASE_SEND_INTERVAL
+    compareString ===
+    lastPayloadString
   ) {
     return;
   }
 
-  const payload = buildPeoplePayload();
-  const serialized = JSON.stringify(payload);
+  lastPayloadString =
+    compareString;
 
-  // 変化がない場合は無駄な書き込みをしない
-  if (serialized === lastPayload) {
-    return;
-  }
-
-  lastPayload = serialized;
-  lastFirebaseSendTime = now;
+  lastFirebaseWrite =
+    Date.now();
 
   try {
+
     const currentRef =
       window.firebaseRef(
         window.firebaseDB,
-        "people/current"
+        FIREBASE_CURRENT_PATH
       );
 
-    window.firebaseSet(
-      currentRef,
-      payload
-    ).catch(error => {
-      console.error(
-        "Firebase送信失敗:",
-        error
+    const result =
+      window.firebaseSet(
+        currentRef,
+        payload
       );
-    });
+
+    if (
+      result &&
+      typeof result.catch === "function"
+    ) {
+
+      result.catch(
+        error => {
+
+          console.error(
+            "Firebase送信失敗:",
+            error
+          );
+
+          addEventLog(
+            "Firebase送信失敗"
+          );
+        }
+      );
+    }
+
   } catch (error) {
+
     console.error(
-      "Firebase送信エラー:",
+      "Firebase write error:",
       error
+    );
+
+    addEventLog(
+      "Firebase書込エラー"
     );
   }
 }
 
-/* =========================================================
- * リセット
- * ========================================================= */
 
-function resetSystem(resetTime = Date.now()) {
-  console.log("システムリセット");
+/* ======================================================
+   リセット
+====================================================== */
+
+function resetSystem(
+  resetTime = Date.now()
+) {
 
   currentPeopleCount = 0;
+
   enteredCount = 0;
+
   exitedCount = 0;
 
   predictions = [];
-  tracks = [];
 
-  nextTrackId = 1;
-  lastResetTime = resetTime;
+  people = [];
 
-  lastPayload = "";
+  nextPersonId = 1;
 
-  queueFirebaseSend();
-}
+  lastResetTime =
+    resetTime;
 
-/*
- * HTMLのボタンからも呼べるようにする
- */
-window.resetSystem = resetSystem;
+  lastPayloadString =
+    "";
 
-/* =========================================================
- * 描画
- * ========================================================= */
+  addEventLog(
+    "★★ SYSTEM RESET ★★"
+  );
 
-function drawZones() {
-  const aEnd = width * ZONE_A_END;
-  const bEnd = width * ZONE_B_END;
+  console.log(
+    "SYSTEM RESET"
+  );
 
-  stroke(255);
-  strokeWeight(3);
-  line(aEnd, 0, aEnd, height);
-  line(bEnd, 0, bEnd, height);
+  // リセット直後は必ずFirebaseへ送る
+  if (isFirebaseAvailable()) {
 
-  noStroke();
+    lastFirebaseWrite = 0;
 
-  fill(255);
-  textSize(30);
-  textAlign(CENTER, TOP);
-
-  text("A", aEnd / 2, 20);
-  text("B", (aEnd + bEnd) / 2, 20);
-  text("C", (bEnd + width) / 2, 20);
-}
-
-function drawPersonBoxes() {
-  for (const track of tracks) {
-    // 一時的に消えた人も短時間は予測位置を表示
-    let boxX = track.x;
-    let boxY = track.y;
-
-    if (track.missedFrames > 0) {
-      const predicted =
-        getTrackPredictedPosition(track);
-
-      boxX =
-        predicted.x - track.w / 2;
-      boxY =
-        predicted.y - track.h / 2;
-    }
-
-    const topLeft =
-      videoToCanvas(boxX, boxY);
-
-    const bottomRight =
-      videoToCanvas(
-        boxX + track.w,
-        boxY + track.h
-      );
-
-    const drawW =
-      bottomRight.x - topLeft.x;
-
-    const drawH =
-      bottomRight.y - topLeft.y;
-
-    strokeWeight(4);
-    stroke(
-      track.inside
-        ? 80
-        : 80,
-      track.inside
-        ? 255
-        : 255,
-      80
-    );
-    noFill();
-
-    rect(
-      topLeft.x,
-      topLeft.y,
-      drawW,
-      drawH
-    );
-
-    noStroke();
-    fill(0, 180);
-    rect(
-      topLeft.x,
-      Math.max(0, topLeft.y - 42),
-      190,
-      40
-    );
-
-    fill(255);
-    textAlign(LEFT, CENTER);
-    textSize(20);
-
-    const state =
-      track.inside
-        ? "IN"
-        : "WAIT";
-
-    text(
-      `ID:${track.id}  ${track.currentZone}  ${state}`,
-      topLeft.x + 8,
-      Math.max(20, topLeft.y - 22)
-    );
-
-    // デバッグ情報
-    fill(255);
-    textSize(15);
-
-    text(
-      `miss:${track.missedFrames} C:${track.passedC ? "Y" : "N"}`,
-      topLeft.x + 8,
-      topLeft.y + drawH + 18
-    );
+    sendPeopleData();
   }
 }
 
-function drawStatus() {
-  noStroke();
 
-  fill(0, 170);
-  rect(15, height - 125, 390, 110);
+/*
+ * HTMLから
+ * resetSystem()
+ * を呼べるようにする
+ */
+window.resetSystem =
+  resetSystem;
 
-  fill(255);
-  textAlign(LEFT, TOP);
-  textSize(24);
 
-  text(
-    `現在人数: ${currentPeopleCount}`,
-    30,
-    height - 112
-  );
-
-  textSize(18);
-
-  text(
-    `入室: ${enteredCount}   退出: ${exitedCount}`,
-    30,
-    height - 78
-  );
-
-  text(
-    `AI: ${modelReady ? "OK" : "読み込み中"}  ` +
-    `Camera: ${cameraReady ? "OK" : "待機中"}  ` +
-    `Firebase: ${window.firebaseDB ? "OK" : "待機中"}`,
-    30,
-    height - 48
-  );
-}
-
-function drawMessage(message) {
-  fill(255);
-  textAlign(CENTER, CENTER);
-  textSize(32);
-  text(message, width / 2, height / 2);
-}
-
-/* =========================================================
- * キーボード操作
- * ========================================================= */
+/* ======================================================
+   キーボード
+====================================================== */
 
 function keyPressed() {
-  // Rキーでローカルリセット
+
   if (
     key === "r" ||
     key === "R"
   ) {
+
     resetSystem();
   }
 }
+
+
+/* ======================================================
+   イベントログ
+====================================================== */
+
+function addEventLog(message) {
+
+  const now =
+    new Date();
+
+  const time =
+    now.toLocaleTimeString(
+      "ja-JP",
+      {
+        hour12: false
+      }
+    );
+
+  eventLogs.unshift(
+    `${time} ${message}`
+  );
+
+  if (
+    eventLogs.length >
+    MAX_EVENT_LOGS
+  ) {
+
+    eventLogs =
+      eventLogs.slice(
+        0,
+        MAX_EVENT_LOGS
+      );
+  }
+
+  console.log(
+    `[${time}]`,
+    message
+  );
+}
+
+
+/* ======================================================
+   中央メッセージ
+====================================================== */
+
+function drawCenterMessage(
+  message
+) {
+
+  fill(255);
+
+  textAlign(
+    CENTER,
+    CENTER
+  );
+
+  textSize(32);
+
+  text(
+    message,
+    width / 2,
+    height / 2
+  );
+}
+
+
+/* ======================================================
+   念のためページ終了時にタイマー解除
+====================================================== */
+
+window.addEventListener(
+  "beforeunload",
+  () => {
+
+    if (firebaseWriteTimer) {
+
+      clearTimeout(
+        firebaseWriteTimer
+      );
+
+      firebaseWriteTimer =
+        null;
+    }
+  }
+);
+
+
+/* ======================================================
+   END
+====================================================== */
