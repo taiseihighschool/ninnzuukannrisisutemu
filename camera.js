@@ -426,10 +426,16 @@ function updateTracks(persons) {
       }
 
       const missed = track.missedFrames || 0;
+      // ★速度が未定義でも追跡できるようにする
+      const vx =
+        track.velocityX || 0;
+      const vy =
+        track.velocityY || 0;
+
       const predictedX =
-        track.x + track.velocityX * Math.min(missed + 1, 3);
+        track.x + vx * Math.min(missed + 1, 3);
       const predictedY =
-        track.y + track.velocityY * Math.min(missed + 1, 3);
+        track.y + vy * Math.min(missed + 1, 3);
 
       const dx =
         detection.x - predictedX;
@@ -553,6 +559,16 @@ function updateTracks(persons) {
 
       prediction:
         detection.prediction,
+
+      // ★初期速度
+      velocityX:
+        0,
+      velocityY:
+        0,
+
+      // ★検出ロスト回数
+      missedFrames:
+        0,
 
       currentZone:
         initialZone,
