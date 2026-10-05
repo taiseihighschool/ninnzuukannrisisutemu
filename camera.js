@@ -103,6 +103,10 @@ const COUNT_COOLDOWN = 500;
 const ZONE_A_END = 0.33;
 const ZONE_B_END = 0.66;
 
+// 退出専用強化設定（入室判定には使用しない）
+const EXIT_A_MARGIN = 0.06;
+const EXIT_RECOVERY_TIME = 8000;
+
 
 // ======================================================
 // リセット
@@ -614,7 +618,13 @@ function updateTracks(persons) {
         false,
 
       lastCountTime:
-        0
+        0,
+
+      // 退出専用
+      exitLastCAt:
+        0,
+      exitLastZone:
+        initialZone
 
     });
 
@@ -755,12 +765,11 @@ function updateZoneHistory(
   newZone
 ) {
 
-  if (
-    oldZone === newZone
-  ) {
-
+  // ★退出は同じゾーン内でも毎回確認する。
+  // 入室は今まで通りゾーン変更時だけ。
+  if (oldZone === newZone) {
+    checkExit(track, oldZone, newZone);
     return;
-
   }
 
   console.log(
@@ -772,49 +781,19 @@ function updateZoneHistory(
     newZone
   );
 
+  track.zoneHistory.push(newZone);
 
-  // ==================================================
-  // 履歴
-  // ==================================================
-
-  track.zoneHistory.push(
-    newZone
-  );
-
-  if (
-    track.zoneHistory.length >
-    10
-  ) {
-
+  if (track.zoneHistory.length > 10) {
     track.zoneHistory.shift();
-
   }
 
-  track.currentZone =
-    newZone;
+  track.currentZone = newZone;
 
+  // ★入室部分は変更しない
+  checkEntry(track, oldZone, newZone);
 
-  // ==================================================
-  // 入室
-  // ==================================================
-
-  checkEntry(
-    track,
-    oldZone,
-    newZone
-  );
-
-
-  // ==================================================
-  // 退出
-  // ==================================================
-
-  checkExit(
-    track,
-    oldZone,
-    newZone
-  );
-
+  // ★退出だけ改良
+  checkExit(track, oldZone, newZone);
 }
 
 
@@ -987,14 +966,31 @@ function checkExit(
   newZone
 ) {
 
+  // 入室済みの人物だけ退出対象
   if (track.inside !== true) {
     return;
   }
 
-  // Cに一度でも到達した入室者を退出候補として保持
-  if (newZone === "C") {
+  const now = Date.now();
+  const videoWidth = getActualVideoWidth();
+
+  if (!videoWidth || videoWidth <= 0) {
+    return;
+  }
+
+  const ratio = Math.max(
+    0,
+    Math.min(1, track.x / videoWidth)
+  );
+
+  // ==================================================
+  // ① Cに入ったら退出候補を保持
+  // ==================================================
+  if (newZone === "C" || ratio >= ZONE_B_END) {
     track.passedC = true;
     track.exitState = 1;
+    track.exitLastCAt = now;
+    track.exitLastZone = "C";
 
     console.log(
       "人物",
@@ -1005,28 +1001,60 @@ function checkExit(
     return;
   }
 
-  // ★ C → B → A
-  // ★ C → A
-  // Cの後にAへ到達したら、必ず退出確定
-  if (track.passedC === true && newZone === "A") {
-    console.log(
-      "人物",
-      track.id,
-      "C → B → A【退出確定】"
-    );
-
-    executeExit(track);
-    return;
-  }
-
-  if (oldZone === "C" && newZone === "B") {
+  // ==================================================
+  // ② C→B を記録
+  // Bは一瞬だけでもOK
+  // ==================================================
+  if (
+    track.passedC === true &&
+    (oldZone === "C" || newZone === "B")
+  ) {
     track.exitState = 2;
+    track.exitLastZone = "B";
 
     console.log(
       "人物",
       track.id,
       "C → B【退出中】"
     );
+  }
+
+  // ==================================================
+  // ③ ★最重要：Aに戻ったら即退出
+  // C→B→A / C→A 両対応
+  // ==================================================
+  // 退出だけAの範囲を少し広げ、境界の揺れを吸収する。
+  if (
+    track.passedC === true &&
+    ratio <= ZONE_A_END + EXIT_A_MARGIN
+  ) {
+
+    console.log(
+      "================================"
+    );
+    console.log(
+      "★ 退出確定",
+      "ID:", track.id,
+      "ratio:", ratio.toFixed(3),
+      "経路: C→B→A / C→A"
+    );
+    console.log(
+      "================================"
+    );
+
+    executeExit(track);
+    return;
+  }
+
+  // ==================================================
+  // ④ C到達後の状態を一時保持
+  // ==================================================
+  if (
+    track.passedC === true &&
+    track.exitLastCAt > 0 &&
+    now - track.exitLastCAt <= EXIT_RECOVERY_TIME
+  ) {
+    return;
   }
 }
 
