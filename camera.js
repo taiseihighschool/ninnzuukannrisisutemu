@@ -1,5 +1,5 @@
 // ======================================================
-// AI人数管理システム・入退室反応改善版
+// AI人数管理システム・退出専用強化版
 // A → B → C = 入室
 // C → B → A / C → A = 退出
 // ======================================================
@@ -628,6 +628,11 @@ function updateTracks(persons) {
 
     });
 
+    // ★退出専用: 新IDになった場合だけ退出状態を復元
+    restoreExitStateForNewTrack(
+      tracks[tracks.length - 1]
+    );
+
   }
 
 
@@ -966,7 +971,11 @@ function checkExit(
   newZone
 ) {
 
-  // 入室済みの人物だけ退出対象
+  // ==================================================
+  // 退出専用ロジック
+  // 入室判定・entryProgressには一切触れない
+  // ==================================================
+
   if (track.inside !== true) {
     return;
   }
@@ -984,7 +993,7 @@ function checkExit(
   );
 
   // ==================================================
-  // ① Cに入ったら退出候補を保持
+  // ① Cに到達したら「退出候補」として保存
   // ==================================================
   if (newZone === "C" || ratio >= ZONE_B_END) {
     track.passedC = true;
@@ -992,38 +1001,38 @@ function checkExit(
     track.exitLastCAt = now;
     track.exitLastZone = "C";
 
+    rememberExitCandidate(track);
+
     console.log(
       "人物",
       track.id,
-      "C到達 → 退出候補"
+      "C到達 → 退出候補を保存"
     );
 
     return;
   }
 
   // ==================================================
-  // ② C→B を記録
-  // Bは一瞬だけでもOK
+  // ② Cから左方向へ戻ったら退出追跡を継続
   // ==================================================
-  if (
-    track.passedC === true &&
-    (oldZone === "C" || newZone === "B")
-  ) {
-    track.exitState = 2;
-    track.exitLastZone = "B";
+  if (track.passedC === true) {
+    track.exitLastZone = newZone;
 
-    console.log(
-      "人物",
-      track.id,
-      "C → B【退出中】"
-    );
+    if (
+      oldZone === "C" ||
+      newZone === "B"
+    ) {
+      track.exitState = 2;
+    }
+
+    // C到達後は、Aに着くまで候補を更新する
+    rememberExitCandidate(track);
   }
 
   // ==================================================
-  // ③ ★最重要：Aに戻ったら即退出
-  // C→B→A / C→A 両対応
+  // ③ ★Aに到達したら即退出
+  // C→B→A / C→A の両方に対応
   // ==================================================
-  // 退出だけAの範囲を少し広げ、境界の揺れを吸収する。
   if (
     track.passedC === true &&
     ratio <= ZONE_A_END + EXIT_A_MARGIN
@@ -1047,17 +1056,185 @@ function checkExit(
   }
 
   // ==================================================
-  // ④ C到達後の状態を一時保持
+  // ④ 検出が一時的に途切れても退出候補を保持
   // ==================================================
   if (
     track.passedC === true &&
     track.exitLastCAt > 0 &&
     now - track.exitLastCAt <= EXIT_RECOVERY_TIME
   ) {
-    return;
+    rememberExitCandidate(track);
   }
 }
 
+
+// ======================================================
+// 退出候補を保存
+//
+// ★退出専用
+// 入室処理には一切使用しない
+// ======================================================
+
+let exitCandidates = [];
+
+function rememberExitCandidate(track) {
+
+  if (track.inside !== true || track.passedC !== true) {
+    return;
+  }
+
+  const now = Date.now();
+
+  let candidate = exitCandidates.find(
+    function (item) {
+      return item.trackId === track.id;
+    }
+  );
+
+  if (!candidate) {
+    candidate = {
+      trackId: track.id,
+      assignedTrackId: track.id,
+      x: track.x,
+      y: track.y,
+      inside: true,
+      passedC: true,
+      lastSeen: now,
+      counted: false
+    };
+
+    exitCandidates.push(candidate);
+  } else {
+    candidate.x = track.x;
+    candidate.y = track.y;
+    candidate.inside = true;
+    candidate.passedC = true;
+    candidate.lastSeen = now;
+  }
+
+  // 古すぎる退出候補だけ削除
+  exitCandidates = exitCandidates.filter(
+    function (item) {
+      return !item.counted &&
+        now - item.lastSeen <= EXIT_RECOVERY_TIME;
+    }
+  );
+}
+
+
+// ======================================================
+// 新しいtrackに退出状態を復元
+//
+// AIの一時的なID変更が起きても、
+// 「Cまで来た入室済み人物」の状態を引き継ぐ。
+//
+// ★入室判定には触れない
+// ======================================================
+
+function restoreExitStateForNewTrack(track) {
+
+  if (!track) {
+    return;
+  }
+
+  const now = Date.now();
+  const videoWidth = getActualVideoWidth();
+
+  if (!videoWidth || videoWidth <= 0) {
+    return;
+  }
+
+  const currentRatio = Math.max(
+    0,
+    Math.min(1, track.x / videoWidth)
+  );
+
+  // A/B側に新しいIDが出たときだけ復元候補にする
+  if (currentRatio > ZONE_B_END + 0.02) {
+    return;
+  }
+
+  let best = null;
+  let bestScore = Infinity;
+
+  for (let i = 0; i < exitCandidates.length; i++) {
+    const candidate = exitCandidates[i];
+
+    if (candidate.counted) {
+      continue;
+    }
+
+    // すでに別の生存trackへ割り当て済みなら再利用しない。
+    // ただし元trackが消えていれば新IDへ引き継げる。
+    if (candidate.assignedTrackId != null) {
+      const assignedAlive = tracks.some(
+        function (item) {
+          return item.id === candidate.assignedTrackId;
+        }
+      );
+      if (assignedAlive && candidate.assignedTrackId !== track.id) {
+        continue;
+      }
+    }
+
+    if (!candidate.inside || !candidate.passedC) {
+      continue;
+    }
+
+    if (
+      now - candidate.lastSeen > EXIT_RECOVERY_TIME
+    ) {
+      continue;
+    }
+
+    // 退出方向なので、新しい検出が候補の現在位置より
+    // 大きく右へ戻っているものは復元しない
+    if (track.x > candidate.x + videoWidth * 0.12) {
+      continue;
+    }
+
+    const dx = track.x - candidate.x;
+    const dy = track.y - candidate.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // 横方向の動きを重視したスコア
+    const score =
+      distance +
+      Math.abs(dy) * 0.35;
+
+    if (score < bestScore) {
+      bestScore = score;
+      best = candidate;
+    }
+  }
+
+  if (!best) {
+    return;
+  }
+
+  // C→Aの間でIDが変わった場合、退出に必要な状態だけ復元
+  track.inside = true;
+  track.passedC = true;
+  track.exitState = currentRatio <= ZONE_A_END + EXIT_A_MARGIN ? 2 : 1;
+  track.exitLastCAt = best.lastSeen;
+  track.exitLastZone = getZone(
+    track.x,
+    track.y
+  );
+
+  console.log(
+    "★ 退出追跡を新IDへ復元",
+    "旧ID:", best.trackId,
+    "新ID:", track.id,
+    "zone:", track.exitLastZone
+  );
+
+  best.trackId = track.id;
+  best.assignedTrackId = track.id;
+  best.lastSeen = now;
+  best.x = track.x;
+  best.y = track.y;
+}
 
 // ======================================================
 // 退出実行
@@ -1140,6 +1317,19 @@ function executeExit(
 
   console.log(
     "================================"
+  );
+
+  // ★退出候補も退出済みにする
+  for (let i = 0; i < exitCandidates.length; i++) {
+    if (exitCandidates[i].trackId === track.id) {
+      exitCandidates[i].counted = true;
+    }
+  }
+
+  exitCandidates = exitCandidates.filter(
+    function (item) {
+      return !item.counted;
+    }
   );
 
   sendPeopleData();
