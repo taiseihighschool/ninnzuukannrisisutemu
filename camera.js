@@ -104,8 +104,10 @@ const ZONE_A_END = 0.33;
 const ZONE_B_END = 0.66;
 
 // 退出専用強化設定（入室判定には使用しない）
-const EXIT_A_MARGIN = 0.06;
-const EXIT_RECOVERY_TIME = 8000;
+const EXIT_A_MARGIN = 0.07;
+const EXIT_RECOVERY_TIME = 12000;
+const EXIT_MAX_HORIZONTAL_GAP = 0.55;
+const EXIT_MAX_VERTICAL_GAP = 0.35;
 
 
 // ======================================================
@@ -629,8 +631,20 @@ function updateTracks(persons) {
     });
 
     // ★退出専用: 新IDになった場合だけ退出状態を復元
+    const newTrack =
+      tracks[tracks.length - 1];
+
     restoreExitStateForNewTrack(
-      tracks[tracks.length - 1]
+      newTrack
+    );
+
+    // ★退出専用:
+    // 新しいIDとしてA側に現れた場合でも、
+    // 復元直後に退出判定を1回行う。
+    checkExit(
+      newTrack,
+      newTrack.currentZone,
+      newTrack.currentZone
     );
 
   }
@@ -1087,7 +1101,10 @@ function rememberExitCandidate(track) {
 
   let candidate = exitCandidates.find(
     function (item) {
-      return item.trackId === track.id;
+      return (
+        item.trackId === track.id ||
+        item.assignedTrackId === track.id
+      );
     }
   );
 
@@ -1100,27 +1117,39 @@ function rememberExitCandidate(track) {
       inside: true,
       passedC: true,
       lastSeen: now,
+      lastCAt: track.exitLastCAt || now,
       counted: false
     };
 
     exitCandidates.push(candidate);
+
   } else {
+
+    candidate.trackId = track.id;
+    candidate.assignedTrackId = track.id;
     candidate.x = track.x;
     candidate.y = track.y;
     candidate.inside = true;
     candidate.passedC = true;
     candidate.lastSeen = now;
+
+    if (!candidate.lastCAt) {
+      candidate.lastCAt =
+        track.exitLastCAt || now;
+    }
   }
 
-  // 古すぎる退出候補だけ削除
+  // 古すぎる退出候補だけ削除。
+  // C到達後の一時的なAIロストには12秒まで耐える。
   exitCandidates = exitCandidates.filter(
     function (item) {
-      return !item.counted &&
-        now - item.lastSeen <= EXIT_RECOVERY_TIME;
+      return (
+        !item.counted &&
+        now - item.lastSeen <= EXIT_RECOVERY_TIME
+      );
     }
   );
 }
-
 
 // ======================================================
 // 新しいtrackに退出状態を復元
@@ -1139,8 +1168,14 @@ function restoreExitStateForNewTrack(track) {
 
   const now = Date.now();
   const videoWidth = getActualVideoWidth();
+  const videoHeight = getActualVideoHeight();
 
-  if (!videoWidth || videoWidth <= 0) {
+  if (
+    !videoWidth ||
+    videoWidth <= 0 ||
+    !videoHeight ||
+    videoHeight <= 0
+  ) {
     return;
   }
 
@@ -1149,60 +1184,146 @@ function restoreExitStateForNewTrack(track) {
     Math.min(1, track.x / videoWidth)
   );
 
-  // A/B側に新しいIDが出たときだけ復元候補にする
-  if (currentRatio > ZONE_B_END + 0.02) {
+  // 退出候補を復元するのはBより左側だけ。
+  // C側の新人物には復元しない。
+  if (
+    currentRatio >
+    ZONE_B_END + 0.05
+  ) {
     return;
   }
 
   let best = null;
   let bestScore = Infinity;
 
-  for (let i = 0; i < exitCandidates.length; i++) {
-    const candidate = exitCandidates[i];
+  for (
+    let i = 0;
+    i < exitCandidates.length;
+    i++
+  ) {
 
-    if (candidate.counted) {
-      continue;
-    }
-
-    // すでに別の生存trackへ割り当て済みなら再利用しない。
-    // ただし元trackが消えていれば新IDへ引き継げる。
-    if (candidate.assignedTrackId != null) {
-      const assignedAlive = tracks.some(
-        function (item) {
-          return item.id === candidate.assignedTrackId;
-        }
-      );
-      if (assignedAlive && candidate.assignedTrackId !== track.id) {
-        continue;
-      }
-    }
-
-    if (!candidate.inside || !candidate.passedC) {
-      continue;
-    }
+    const candidate =
+      exitCandidates[i];
 
     if (
-      now - candidate.lastSeen > EXIT_RECOVERY_TIME
+      candidate.counted ||
+      !candidate.inside ||
+      !candidate.passedC
     ) {
       continue;
     }
 
-    // 退出方向なので、新しい検出が候補の現在位置より
-    // 大きく右へ戻っているものは復元しない
-    if (track.x > candidate.x + videoWidth * 0.12) {
+    if (
+      now - candidate.lastSeen >
+      EXIT_RECOVERY_TIME
+    ) {
       continue;
     }
 
-    const dx = track.x - candidate.x;
-    const dy = track.y - candidate.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    // 退出方向は右→左。
+    // 新しい検出が候補より大きく右へ戻っていたら別人物と判断。
+    if (
+      track.x >
+      candidate.x +
+      videoWidth * 0.08
+    ) {
+      continue;
+    }
 
-    // 横方向の動きを重視したスコア
+    const dx =
+      track.x - candidate.x;
+
+    const dy =
+      Math.abs(track.y - candidate.y);
+
+    const maxHorizontal =
+      Math.max(
+        500,
+        videoWidth * EXIT_MAX_HORIZONTAL_GAP
+      );
+
+    const maxVertical =
+      Math.max(
+        250,
+        videoHeight * EXIT_MAX_VERTICAL_GAP
+      );
+
+    if (
+      Math.abs(dx) >
+      maxHorizontal
+    ) {
+      continue;
+    }
+
+    if (
+      dy >
+      maxVertical
+    ) {
+      continue;
+    }
+
+    // 旧IDがまだ存在していても、
+    // 旧IDが候補位置から大きく外れているなら
+    // 新IDへ退出状態を引き継ぐ。
+    let oldTrack = null;
+
+    if (
+      candidate.assignedTrackId != null
+    ) {
+      oldTrack = tracks.find(
+        function (item) {
+          return (
+            item.id ===
+            candidate.assignedTrackId
+          );
+        }
+      );
+    }
+
+    if (
+      oldTrack &&
+      oldTrack.id !== track.id
+    ) {
+
+      const oldDx =
+        Math.abs(oldTrack.x - candidate.x);
+
+      const oldDy =
+        Math.abs(oldTrack.y - candidate.y);
+
+      // 旧IDが現在も候補の近くにいるなら、
+      // 新IDへ奪わせない。
+      if (
+        oldTrack.missedFrames <= 1 &&
+        oldDx < videoWidth * 0.18 &&
+        oldDy < videoHeight * 0.18
+      ) {
+        continue;
+      }
+    }
+
+    const distance =
+      Math.sqrt(
+        dx * dx +
+        dy * dy
+      );
+
+    // 左へ進んだ距離を少し優先。
+    const leftProgress =
+      Math.max(
+        0,
+        candidate.x - track.x
+      );
+
     const score =
       distance +
-      Math.abs(dy) * 0.35;
+      dy * 0.45 -
+      leftProgress * 0.15;
 
-    if (score < bestScore) {
+    if (
+      score <
+      bestScore
+    ) {
       bestScore = score;
       best = candidate;
     }
@@ -1212,28 +1333,64 @@ function restoreExitStateForNewTrack(track) {
     return;
   }
 
-  // C→Aの間でIDが変わった場合、退出に必要な状態だけ復元
+  // ==================================================
+  // ★退出専用状態だけ復元
+  // 入室のentryProgress等は変更しない
+  // ==================================================
+
   track.inside = true;
   track.passedC = true;
-  track.exitState = currentRatio <= ZONE_A_END + EXIT_A_MARGIN ? 2 : 1;
-  track.exitLastCAt = best.lastSeen;
-  track.exitLastZone = getZone(
-    track.x,
-    track.y
-  );
+
+  track.exitState =
+    currentRatio <=
+    ZONE_A_END + EXIT_A_MARGIN
+      ? 2
+      : 1;
+
+  track.exitLastCAt =
+    best.lastCAt ||
+    best.lastSeen;
+
+  track.exitLastZone =
+    getZone(
+      track.x,
+      track.y
+    );
 
   console.log(
     "★ 退出追跡を新IDへ復元",
-    "旧ID:", best.trackId,
-    "新ID:", track.id,
-    "zone:", track.exitLastZone
+    "旧ID:",
+    best.trackId,
+    "新ID:",
+    track.id,
+    "zone:",
+    track.exitLastZone
   );
 
-  best.trackId = track.id;
-  best.assignedTrackId = track.id;
-  best.lastSeen = now;
-  best.x = track.x;
-  best.y = track.y;
+  // 元のtrackとの関連を切り替える。
+  best.trackId =
+    track.id;
+
+  best.assignedTrackId =
+    track.id;
+
+  best.lastSeen =
+    now;
+
+  best.x =
+    track.x;
+
+  best.y =
+    track.y;
+
+  // Aまで一気に移動していた場合は、
+  // 復元したそのフレームで退出確定。
+  if (
+    currentRatio <=
+    ZONE_A_END + EXIT_A_MARGIN
+  ) {
+    executeExit(track);
+  }
 }
 
 // ======================================================
@@ -1319,9 +1476,14 @@ function executeExit(
     "================================"
   );
 
-  // ★退出候補も退出済みにする
+  // ★退出候補も退出済みにする。
+  // trackId / assignedTrackId のどちらからでも
+  // 同じ候補を確実に終了させる。
   for (let i = 0; i < exitCandidates.length; i++) {
-    if (exitCandidates[i].trackId === track.id) {
+    if (
+      exitCandidates[i].trackId === track.id ||
+      exitCandidates[i].assignedTrackId === track.id
+    ) {
       exitCandidates[i].counted = true;
     }
   }
