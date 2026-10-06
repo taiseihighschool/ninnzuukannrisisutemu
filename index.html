@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>AI人数管理システム</title>
 
   <style>
@@ -11,43 +12,302 @@
       box-sizing: border-box;
     }
 
+    html,
     body {
       margin: 0;
+      padding: 0;
+      min-height: 100%;
+    }
+
+    body {
       min-height: 100vh;
-      background: #111;
+      font-family:
+        "Noto Sans JP",
+        "Yu Gothic",
+        "Hiragino Kaku Gothic ProN",
+        sans-serif;
+
+      background:
+        radial-gradient(circle at top left, #1d3557 0%, transparent 35%),
+        radial-gradient(circle at bottom right, #123c69 0%, transparent 35%),
+        #07111f;
+
       color: white;
-      font-family: sans-serif;
+
       display: flex;
       justify-content: center;
       align-items: center;
+
+      padding: 30px 15px;
     }
 
+    /* 全体 */
     .container {
-      width: 90%;
-      max-width: 700px;
+      width: 100%;
+      max-width: 1000px;
       text-align: center;
     }
 
-    h1 {
-      font-size: 42px;
-      margin-bottom: 50px;
+    /* ヘッダー */
+    .header {
+      margin-bottom: 45px;
     }
 
-    .button {
-      display: block;
-      width: 100%;
-      padding: 25px;
-      margin: 20px 0;
-      border-radius: 15px;
-      background: #222;
-      color: white;
-      text-decoration: none;
-      font-size: 25px;
+    .school-icon {
+      width: 85px;
+      height: 85px;
+
+      margin: 0 auto 20px;
+
+      border-radius: 24px;
+
+      background: linear-gradient(135deg, #2563eb, #38bdf8);
+
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      font-size: 45px;
+
+      box-shadow:
+        0 10px 35px rgba(0, 0, 0, 0.35);
+    }
+
+    h1 {
+      margin: 0;
+
+      font-size: clamp(32px, 6vw, 52px);
+      font-weight: 800;
+
+      letter-spacing: 2px;
+    }
+
+    .subtitle {
+      margin-top: 14px;
+
+      color: #b8c7d9;
+
+      font-size: clamp(15px, 2.5vw, 19px);
+    }
+
+    /* メインカード */
+    .main-card {
+      background: rgba(255, 255, 255, 0.07);
+
+      border: 1px solid rgba(255, 255, 255, 0.12);
+
+      border-radius: 28px;
+
+      padding: 35px;
+
+      backdrop-filter: blur(12px);
+
+      box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.35);
+    }
+
+    .section-title {
+      margin: 0 0 25px;
+
+      font-size: 22px;
       font-weight: bold;
     }
 
+    /* ボタン */
+    .menu {
+      display: grid;
+
+      grid-template-columns: repeat(3, 1fr);
+
+      gap: 20px;
+    }
+
+    .button {
+      min-height: 180px;
+
+      padding: 25px 15px;
+
+      border-radius: 22px;
+
+      background: rgba(255, 255, 255, 0.08);
+
+      border: 1px solid rgba(255, 255, 255, 0.12);
+
+      color: white;
+
+      text-decoration: none;
+
+      display: flex;
+      flex-direction: column;
+
+      justify-content: center;
+      align-items: center;
+
+      transition:
+        transform 0.2s,
+        background 0.2s,
+        box-shadow 0.2s;
+    }
+
     .button:hover {
-      background: #333;
+      transform: translateY(-6px);
+
+      background: rgba(255, 255, 255, 0.14);
+
+      box-shadow:
+        0 12px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .button:active {
+      transform: scale(0.97);
+    }
+
+    .icon {
+      font-size: 55px;
+
+      margin-bottom: 15px;
+    }
+
+    .button-title {
+      font-size: 20px;
+
+      font-weight: bold;
+
+      margin-bottom: 8px;
+    }
+
+    .button-description {
+      color: #b8c7d9;
+
+      font-size: 14px;
+
+      line-height: 1.5;
+    }
+
+    /* 下部説明 */
+    .info {
+      margin-top: 28px;
+
+      padding: 20px;
+
+      border-radius: 18px;
+
+      background: rgba(0, 0, 0, 0.18);
+
+      color: #b8c7d9;
+
+      font-size: 14px;
+
+      line-height: 1.8;
+    }
+
+    .status {
+      display: inline-flex;
+
+      align-items: center;
+
+      gap: 8px;
+
+      margin-top: 10px;
+
+      color: #9ee7b3;
+
+      font-weight: bold;
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+
+      border-radius: 50%;
+
+      background: #39d98a;
+
+      box-shadow: 0 0 10px #39d98a;
+    }
+
+    /* フッター */
+    footer {
+      margin-top: 25px;
+
+      color: #718096;
+
+      font-size: 12px;
+    }
+
+    /* タブレット */
+    @media (max-width: 800px) {
+
+      .menu {
+        grid-template-columns: 1fr;
+      }
+
+      .button {
+        min-height: 135px;
+
+        flex-direction: row;
+
+        justify-content: flex-start;
+
+        text-align: left;
+
+        padding: 20px 25px;
+      }
+
+      .icon {
+        font-size: 45px;
+
+        margin: 0 22px 0 0;
+      }
+
+      .button-title {
+        font-size: 19px;
+      }
+
+      .main-card {
+        padding: 25px 18px;
+      }
+    }
+
+    /* スマホ */
+    @media (max-width: 480px) {
+
+      body {
+        padding: 20px 12px;
+      }
+
+      .school-icon {
+        width: 70px;
+        height: 70px;
+
+        font-size: 36px;
+      }
+
+      .header {
+        margin-bottom: 30px;
+      }
+
+      .main-card {
+        border-radius: 22px;
+        padding: 20px 14px;
+      }
+
+      .button {
+        min-height: 115px;
+      }
+
+      .icon {
+        font-size: 38px;
+        margin-right: 15px;
+      }
+
+      .button-title {
+        font-size: 17px;
+      }
+
+      .button-description {
+        font-size: 12px;
+      }
     }
   </style>
 </head>
@@ -56,17 +316,121 @@
 
   <div class="container">
 
-    <h1>AI人数管理システム</h1>
+    <!-- ヘッダー -->
+    <header class="header">
 
-    <a class="button" href="./camera.html">
-      📷 カメラ画面を開く
-    </a>
+      <div class="school-icon">
+        🏫
+      </div>
 
-    <a class="button" href="./management.html">
-      📊 人数管理画面を開く
-    </a>
+      <h1>
+        AI人数管理システム
+      </h1>
+
+      <div class="subtitle">
+        AI画像認識によるリアルタイム人数管理
+      </div>
+
+    </header>
+
+
+    <!-- メニュー -->
+    <main class="main-card">
+
+      <h2 class="section-title">
+        メニュー
+      </h2>
+
+
+      <div class="menu">
+
+        <!-- カメラ -->
+        <a class="button" href="./camera.html">
+
+          <div class="icon">
+            📷
+          </div>
+
+          <div>
+            <div class="button-title">
+              AIカメラ
+            </div>
+
+            <div class="button-description">
+              カメラを起動して<br>
+              人数を自動カウント
+            </div>
+          </div>
+
+        </a>
+
+
+        <!-- 管理画面 -->
+        <a class="button" href="./management.html">
+
+          <div class="icon">
+            📊
+          </div>
+
+          <div>
+            <div class="button-title">
+              人数管理
+            </div>
+
+            <div class="button-description">
+              現在の人数や<br>
+              入退室状況を管理
+            </div>
+          </div>
+
+        </a>
+
+
+        <!-- 混雑状況 -->
+        <a class="button" href="./status.html">
+
+          <div class="icon">
+            👀
+          </div>
+
+          <div>
+            <div class="button-title">
+              混雑状況
+            </div>
+
+            <div class="button-description">
+              現在の混雑状況を<br>
+              かんたんに確認
+            </div>
+          </div>
+
+        </a>
+
+      </div>
+
+
+      <!-- システム状態 -->
+      <div class="info">
+
+        AIカメラで取得した人数情報をもとに、
+        リアルタイムで施設内の人数を管理します。
+
+        <div class="status">
+          <span class="status-dot"></span>
+          AI人数管理システム
+        </div>
+
+      </div>
+
+    </main>
+
+
+    <footer>
+      AI人数管理システム
+    </footer>
 
   </div>
 
 </body>
+
 </html>
