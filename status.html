@@ -3,624 +3,135 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>食堂 混雑状況</title>
-
+<title>食堂 混雑状況 | AI人数管理システム</title>
 <style>
-* {
-  box-sizing: border-box;
-}
-
-html,
-body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  min-height: 100%;
-  font-family:
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    "Noto Sans JP",
-    sans-serif;
-  background: #f4f7fb;
-  color: #1f2937;
-}
-
-body {
-  display: flex;
-  justify-content: center;
-}
-
-.container {
-  width: 100%;
-  max-width: 600px;
-  padding: 24px 18px 40px;
-}
-
-/* ヘッダー */
-.header {
-  text-align: center;
-  margin-bottom: 22px;
-}
-
-.header .icon {
-  font-size: 42px;
-}
-
-.header h1 {
-  margin: 8px 0 5px;
-  font-size: 27px;
-}
-
-.header p {
-  margin: 0;
-  color: #6b7280;
-  font-size: 14px;
-}
-
-/* メインカード */
-.main-card {
-  background: white;
-  border-radius: 28px;
-  padding: 30px 20px;
-  text-align: center;
-  box-shadow:
-    0 10px 30px rgba(0,0,0,0.08);
-  margin-bottom: 18px;
-}
-
-.main-title {
-  font-size: 17px;
-  color: #6b7280;
-  margin-bottom: 8px;
-}
-
-.people-number {
-  font-size: 92px;
-  line-height: 1;
-  font-weight: 800;
-  letter-spacing: -4px;
-}
-
-.people-unit {
-  font-size: 24px;
-  font-weight: 600;
-  margin-left: 5px;
-}
-
-/* 混雑状態 */
-.congestion {
-  margin-top: 22px;
-  padding: 15px;
-  border-radius: 16px;
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.congestion.empty {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.congestion.normal {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.congestion.crowded {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-/* 詳細カード */
-.info-card {
-  background: white;
-  border-radius: 20px;
-  padding: 20px;
-  box-shadow:
-    0 6px 20px rgba(0,0,0,0.06);
-  margin-bottom: 15px;
-}
-
-.info-title {
-  font-size: 16px;
-  font-weight: 700;
-  margin-bottom: 15px;
-}
-
-.row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 11px 0;
-  border-bottom: 1px solid #eef0f3;
-}
-
-.row:last-child {
-  border-bottom: none;
-}
-
-.label {
-  color: #6b7280;
-}
-
-.value {
-  font-weight: 700;
-}
-
-/* 接続状態 */
-.connection {
-  text-align: center;
-  font-size: 13px;
-  color: #6b7280;
-  margin-top: 20px;
-}
-
-.connected {
-  color: #16a34a;
-  font-weight: 700;
-}
-
-.disconnected {
-  color: #dc2626;
-  font-weight: 700;
-}
-
-/* 更新 */
-.update {
-  text-align: center;
-  color: #9ca3af;
-  font-size: 12px;
-  margin-top: 8px;
-}
-
-/* 説明 */
-.note {
-  background: #eef6ff;
-  border-radius: 16px;
-  padding: 15px;
-  margin-top: 20px;
-  color: #475569;
-  font-size: 13px;
-  line-height: 1.7;
-}
-
-@media (max-width: 400px) {
-
-  .container {
-    padding: 18px 12px 30px;
-  }
-
-  .header h1 {
-    font-size: 23px;
-  }
-
-  .people-number {
-    font-size: 75px;
-  }
-}
+:root{--blue:#1769b0;--text:#18385e;--muted:#65758b;--line:#d8e8f8;--green:#159653;--red:#d83232}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP","Yu Gothic",sans-serif;color:var(--text);background:linear-gradient(145deg,#e8f4ff,#f7fbff 48%,#e7f2ff)}
+.hero{color:white;padding:26px 18px;background:linear-gradient(100deg,#115ea4,#2684cb)}.hero-inner{max-width:1180px;margin:auto;display:flex;align-items:center;gap:20px}.school-icon{width:78px;height:78px;flex:0 0 78px;border-radius:20px;display:grid;place-items:center;font-size:43px;background:#ffffff25;border:1px solid #ffffff40}.hero h1{margin:0;font-size:clamp(25px,4vw,43px)}.hero p{margin:8px 0 0;color:#e5f3ff}
+.container{max-width:1180px;margin:26px auto 40px;padding:0 18px}.panel{background:#fffffff2;border:1px solid var(--line);border-radius:26px;padding:clamp(16px,3vw,34px);box-shadow:0 12px 36px #1c54861a}
+.heading-row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:25px}.heading-left{display:flex;align-items:center;gap:16px}.food-icon{width:70px;height:70px;flex:0 0 70px;border-radius:50%;display:grid;place-items:center;color:white;background:var(--blue);font-size:35px}h2{font-size:clamp(24px,3vw,38px);margin:0 0 7px}.subtitle{margin:0;color:var(--muted);line-height:1.6}.connection{white-space:nowrap;padding:10px 14px;border-radius:999px;background:#e7f8ee;color:var(--green);font-weight:700;font-size:14px}.connection.error{color:var(--red);background:#fff0f0}.connection.waiting{color:#8a6500;background:#fff7dc}
+.top-grid{display:grid;grid-template-columns:1.3fr .9fr;gap:18px}.metric{min-width:0;border-radius:22px;padding:25px 18px;border:1px solid #c4e2ff;background:linear-gradient(135deg,#e8f5ff,#f4fbff);text-align:center}.metric-label{font-size:20px;font-weight:750;margin-bottom:18px}.big-number{display:flex;justify-content:center;align-items:baseline;gap:9px}.big-number strong{font-size:clamp(76px,11vw,125px);line-height:1;color:var(--blue);letter-spacing:-.05em;overflow-wrap:anywhere}.big-number span{font-size:26px;font-weight:700}.crowd-card{border-color:#ffe4a0;background:linear-gradient(135deg,#fff9e8,#fffdf4);display:flex;flex-direction:column;justify-content:center}.crowd-pill{display:inline-flex;align-self:center;justify-content:center;align-items:center;padding:14px 16px;border-radius:999px;font-size:clamp(16px,2vw,22px);font-weight:800}.crowd-pill.empty{color:#137a3d;background:#dcfce7}.crowd-pill.normal{color:#956000;background:#ffedb0}.crowd-pill.crowded{color:#b91c1c;background:#fee2e2}.crowd-explain{margin:17px 0 0;line-height:1.8;font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:18px}.stat{padding:20px 16px;border-radius:19px;background:#eef7ff;border:1px solid #d2e8ff;text-align:center}.stat.exit{background:#fff1f1;border-color:#ffdddd}.stat.time{background:#f3f2ff;border-color:#e2dfff}.stat-label{font-weight:750;font-size:16px}.stat-value{margin-top:9px;font-size:clamp(25px,3.2vw,36px);font-weight:850}.stat-value small{font-size:15px}
+.guide{margin-top:19px;border:1px solid var(--line);border-radius:19px;overflow:hidden}.guide h3{margin:0;padding:16px 18px;font-size:19px;background:#f6fbff}.guide-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:8px}.guide-item{text-align:center;border-radius:12px;padding:15px 7px;font-weight:700;line-height:1.7}.green{color:#137a3d;background:#eaf9ef}.yellow{color:#9a6500;background:#fff8e5}.red{color:#b91c1c;background:#fff0f0}
+.notice{margin-top:19px;padding:19px;border-radius:18px;background:#edf7ff;border:1px solid #d3eaff}.notice h3{margin:0 0 9px;font-size:19px}.notice ul{margin:0;padding-left:22px;line-height:1.9}.actions{display:grid;grid-template-columns:1fr 1fr;margin-top:21px;background:var(--blue);border-radius:18px;overflow:hidden}.action{display:flex;justify-content:center;align-items:center;gap:10px;min-height:68px;color:white;font-size:16px;font-weight:800;text-decoration:none;border:0;background:transparent;cursor:pointer;font-family:inherit}.action:hover{background:#ffffff20}.action+.action{border-left:1px solid #ffffff60}.action:disabled{opacity:.65;cursor:wait}.error-message{color:var(--red);text-align:center;font-size:14px;margin-top:12px}footer{text-align:center;color:#718096;font-size:12px;margin-top:18px}
+@media(max-width:760px){.hero-inner{gap:13px}.school-icon{width:60px;height:60px;flex-basis:60px;font-size:32px}.heading-row{align-items:flex-start;flex-direction:column}.top-grid{grid-template-columns:1fr}.stats{grid-template-columns:1fr;gap:10px}.stat{display:flex;align-items:center;justify-content:space-between;text-align:left;padding:16px 18px}.stat-value{margin:0}}
+@media(max-width:440px){.container{padding:0 10px;margin-top:14px}.panel{padding:14px 11px;border-radius:20px}.heading-left{gap:10px}.food-icon{width:52px;height:52px;flex-basis:52px;font-size:27px}.connection{font-size:12px}.big-number strong{font-size:76px}.guide-grid{grid-template-columns:1fr}.actions{grid-template-columns:1fr}.action+.action{border-left:0;border-top:1px solid #ffffff60}}
 </style>
 </head>
-
 <body>
-
-<div class="container">
-
-  <!-- ヘッダー -->
-  <div class="header">
-
-    <div class="icon">
-      🍴
-    </div>
-
-    <h1>
-      食堂の混雑状況
-    </h1>
-
-    <p>
-      AIによるリアルタイム人数管理
-    </p>
-
-  </div>
-
-
-  <!-- 現在人数 -->
-  <div class="main-card">
-
-    <div class="main-title">
-      現在の食堂人数
-    </div>
-
-    <div>
-      <span
-        id="peopleCount"
-        class="people-number"
-      >
-        0
-      </span>
-
-      <span class="people-unit">
-        人
-      </span>
-    </div>
-
-    <div
-      id="congestion"
-      class="congestion empty"
-    >
-      🟢 空いています
-    </div>
-
-  </div>
-
-
-  <!-- 詳細 -->
-  <div class="info-card">
-
-    <div class="info-title">
-      📊 現在の状況
-    </div>
-
-    <div class="row">
-
-      <span class="label">
-        入室人数
-      </span>
-
-      <span
-        id="enteredCount"
-        class="value"
-      >
-        0人
-      </span>
-
-    </div>
-
-    <div class="row">
-
-      <span class="label">
-        退出人数
-      </span>
-
-      <span
-        id="exitedCount"
-        class="value"
-      >
-        0人
-      </span>
-
-    </div>
-
-    <div class="row">
-
-      <span class="label">
-        最終更新
-      </span>
-
-      <span
-        id="updateTime"
-        class="value"
-      >
-        --
-      </span>
-
-    </div>
-
-  </div>
-
-
-  <!-- Firebase状態 -->
-  <div class="connection">
-
-    Firebase：
-    
-    <span
-      id="firebaseStatus"
-      class="connected"
-    >
-      接続中...
-    </span>
-
-  </div>
-
-  <div
-    id="connectionError"
-    class="connection"
-  >
-  </div>
-
-
-  <!-- 説明 -->
-  <div class="note">
-
-    💡 このページでは、食堂に現在何人いるかを
-    AI人数管理システムからリアルタイムで確認できます。
-
-    <br><br>
-
-    🟢 0～9人：空いています<br>
-    🟡 10～19人：やや混雑<br>
-    🔴 20人以上：混雑しています
-
-  </div>
-
+<header class="hero"><div class="hero-inner"><div class="school-icon" aria-hidden="true">🏫</div><div><h1>AI人数管理システム</h1><p>AIでリアルタイムに人数を管理</p></div></div></header>
+<main class="container"><section class="panel">
+<div class="heading-row"><div class="heading-left"><div class="food-icon" aria-hidden="true">🍴</div><div><h2>食堂の混雑状況</h2><p class="subtitle">現在の食堂の人数と混雑状況をリアルタイムで確認できます。</p></div></div><div id="firebaseStatus" class="connection waiting" role="status" aria-live="polite">Firebase 接続中...</div></div>
+<div class="top-grid">
+<div class="metric"><div class="metric-label">現在の食堂人数</div><div class="big-number"><strong id="peopleCount">--</strong><span>人</span></div></div>
+<div class="metric crowd-card"><div class="metric-label">混雑状況</div><div id="congestion" class="crowd-pill empty">データを読み込み中</div><p id="crowdExplain" class="crowd-explain">Firebaseから最新の人数を取得しています。</p></div>
 </div>
-
-
+<div class="stats">
+<div class="stat"><div class="stat-label">🚪 入室人数</div><div id="enteredCount" class="stat-value">-- <small>人</small></div></div>
+<div class="stat exit"><div class="stat-label">🚪 退出人数</div><div id="exitedCount" class="stat-value">-- <small>人</small></div></div>
+<div class="stat time"><div class="stat-label">🕒 最終更新</div><div id="updateTime" class="stat-value">--:--</div></div>
+</div>
+<section class="guide" aria-label="混雑状況の目安"><h3>📊 混雑状況の目安</h3><div class="guide-grid"><div class="guide-item green">🟢 0～9人<br>空いています</div><div class="guide-item yellow">🟡 10～19人<br>やや混雑しています</div><div class="guide-item red">🔴 20人以上<br>混雑しています</div></div></section>
+<section class="notice"><h3>💡 お知らせ</h3><ul><li>食堂の現在人数をリアルタイムで確認できます。</li><li>混雑状況はFirebaseから取得した人数に応じて自動で表示されます。</li><li>カメラの検出状況や通信状態によって表示が遅れる場合があります。</li></ul></section>
+<div class="actions"><a class="action" href="./index.html">🏠 ホームに戻る</a><button id="refreshButton" class="action" type="button">🔄 最新の情報に更新</button></div>
+<div id="connectionError" class="error-message" role="alert" aria-live="polite"></div>
+</section><footer>AI人数管理システム · 食堂混雑状況</footer></main>
 <script type="module">
-
-import {
-  initializeApp
-}
-from
-"https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-
-import {
-  getDatabase,
-  ref,
-  onValue
-}
-from
-"https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
-
-
-/* ==========================================
-   Firebase設定
-========================================== */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getDatabase, ref, onValue, get } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
 const firebaseConfig = {
-
-  apiKey:
-    "AIzaSyAslBm8rtnbcpuMTMHHJbErpJoMp_im-fg",
-
-  authDomain:
-    "aininnzuukannri-136ec.firebaseapp.com",
-
-  databaseURL:
-    "https://aininnzuukannri-136ec-default-rtdb.firebaseio.com",
-
-  projectId:
-    "aininnzuukannri-136ec",
-
-  storageBucket:
-    "aininnzuukannri-136ec.firebasestorage.app",
-
-  messagingSenderId:
-    "761746001349",
-
-  appId:
-    "1:761746001349:web:f01d89e616dfe5689ccfac",
-
-  measurementId:
-    "G-D053Q0CVGR"
-
+  apiKey: "AIzaSyAslBm8rtnbcpuMTMHHJbErpJoMp_im-fg",
+  authDomain: "aininnzuukannri-136ec.firebaseapp.com",
+  databaseURL: "https://aininnzuukannri-136ec-default-rtdb.firebaseio.com",
+  projectId: "aininnzuukannri-136ec",
+  storageBucket: "aininnzuukannri-136ec.firebasestorage.app",
+  messagingSenderId: "761746001349",
+  appId: "1:761746001349:web:f01d89e616dfe5689ccfac",
+  measurementId: "G-D053Q0CVGR"
 };
+const $ = id => document.getElementById(id);
+const statusEl = $("firebaseStatus");
+const errorEl = $("connectionError");
+const refreshButton = $("refreshButton");
+let peopleRef = null;
 
-
-/* ==========================================
-   Firebase開始
-========================================== */
-
+function setConnectionState(state, message) {
+  statusEl.textContent = message;
+  statusEl.className = "connection " + state;
+}
+function showCount(data) {
+  data = data || {};
+  const count = Math.max(0, Number(data.peopleCount ?? 0) || 0);
+  const entered = Math.max(0, Number(data.enteredCount ?? 0) || 0);
+  const exited = Math.max(0, Number(data.exitedCount ?? 0) || 0);
+  $("peopleCount").textContent = String(count);
+  $("enteredCount").innerHTML = `${entered} <small>人</small>`;
+  $("exitedCount").innerHTML = `${exited} <small>人</small>`;
+  const badge = $("congestion");
+  badge.className = "crowd-pill";
+  if (count < 10) {
+    badge.classList.add("empty");
+    badge.textContent = "🟢 空いています";
+    $("crowdExplain").textContent = "現在は比較的空いています。";
+  } else if (count < 20) {
+    badge.classList.add("yellow");
+    badge.textContent = "🟡 やや混雑しています";
+    $("crowdExplain").textContent = "10～19人のため、やや混雑しています。";
+  } else {
+    badge.classList.add("crowded");
+    badge.textContent = "🔴 混雑しています";
+    $("crowdExplain").textContent = "20人以上のため、混雑しています。";
+  }
+  if (data.updatedAt !== undefined && data.updatedAt !== null && data.updatedAt !== "") {
+    const raw = Number(data.updatedAt);
+    const date = Number.isFinite(raw) ? new Date(raw) : new Date(data.updatedAt);
+    $("updateTime").textContent = Number.isNaN(date.getTime()) ? "--:--" :
+      date.toLocaleTimeString("ja-JP", {hour:"2-digit", minute:"2-digit", second:"2-digit"});
+  } else {
+    $("updateTime").textContent = "更新情報なし";
+  }
+}
+function handleFirebaseError(error) {
+  console.error("Firebaseエラー:", error);
+  setConnectionState("error", "Firebase 接続エラー");
+  errorEl.textContent = "データを取得できません。通信状態とFirebaseデータベースのルールを確認してください。";
+}
 try {
-
-  const app =
-    initializeApp(
-      firebaseConfig
-    );
-
-  const db =
-    getDatabase(app);
-
-  const peopleRef =
-    ref(
-      db,
-      "people/current"
-    );
-
-
-  document
-    .getElementById(
-      "firebaseStatus"
-    )
-    .textContent =
-    "接続OK";
-
-
-  /* ==========================================
-     人数データ監視
-  ========================================== */
-
-  onValue(
-
-    peopleRef,
-
-    function(snapshot) {
-
-      const data =
-        snapshot.val();
-
-
-      if (!data) {
-
-        document
-          .getElementById(
-            "peopleCount"
-          )
-          .textContent =
-          "0";
-
-        return;
-      }
-
-
-      /* 現在人数 */
-
-      const count =
-        Number(
-          data.peopleCount || 0
-        );
-
-
-      document
-        .getElementById(
-          "peopleCount"
-        )
-        .textContent =
-        count;
-
-
-      /* 入室 */
-
-      document
-        .getElementById(
-          "enteredCount"
-        )
-        .textContent =
-        Number(
-          data.enteredCount || 0
-        ) + "人";
-
-
-      /* 退出 */
-
-      document
-        .getElementById(
-          "exitedCount"
-        )
-        .textContent =
-        Number(
-          data.exitedCount || 0
-        ) + "人";
-
-
-      /* 混雑表示 */
-
-      const congestion =
-        document.getElementById(
-          "congestion"
-        );
-
-
-      congestion.className =
-        "congestion";
-
-
-      if (count < 10) {
-
-        congestion.classList.add(
-          "empty"
-        );
-
-        congestion.textContent =
-          "🟢 空いています";
-
-      }
-
-      else if (count < 20) {
-
-        congestion.classList.add(
-          "normal"
-        );
-
-        congestion.textContent =
-          "🟡 やや混雑しています";
-
-      }
-
-      else {
-
-        congestion.classList.add(
-          "crowded"
-        );
-
-        congestion.textContent =
-          "🔴 混雑しています";
-
-      }
-
-
-      /* 更新時刻 */
-
-      if (data.updatedAt) {
-
-        const date =
-          new Date(
-            data.updatedAt
-          );
-
-        document
-          .getElementById(
-            "updateTime"
-          )
-          .textContent =
-          date.toLocaleTimeString(
-            "ja-JP"
-          );
-
-      }
-
-    },
-
-    function(error) {
-
-      console.error(
-        "Firebaseエラー:",
-        error
-      );
-
-      document
-        .getElementById(
-          "firebaseStatus"
-        )
-        .textContent =
-        "接続エラー";
-
-      document
-        .getElementById(
-          "firebaseStatus"
-        )
-        .className =
-        "disconnected";
-
-      document
-        .getElementById(
-          "connectionError"
-        )
-        .textContent =
-        "Firebaseからデータを取得できません。";
-
-    }
-
-  );
-
-
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  peopleRef = ref(db, "people/current");
+  onValue(peopleRef, snapshot => {
+    showCount(snapshot.val());
+    setConnectionState("", "● Firebase 接続OK");
+    errorEl.textContent = "";
+  }, handleFirebaseError);
+} catch (error) {
+  handleFirebaseError(error);
 }
-
-catch(error) {
-
-  console.error(
-    "Firebase初期化エラー:",
-    error
-  );
-
-  document
-    .getElementById(
-      "firebaseStatus"
-    )
-    .textContent =
-    "接続エラー";
-
-  document
-    .getElementById(
-      "firebaseStatus"
-    )
-    .className =
-    "disconnected";
-
-}
-
+refreshButton.addEventListener("click", async () => {
+  if (!peopleRef) {
+    errorEl.textContent = "Firebaseが初期化されていません。ページを再読み込みしてください。";
+    return;
+  }
+  refreshButton.disabled = true;
+  refreshButton.textContent = "⏳ 更新中...";
+  errorEl.textContent = "";
+  try {
+    const snapshot = await get(peopleRef);
+    showCount(snapshot.val());
+    setConnectionState("", "● Firebase 接続OK");
+    errorEl.textContent = "最新データを取得しました。";
+    window.setTimeout(() => {
+      if (errorEl.textContent === "最新データを取得しました。") errorEl.textContent = "";
+    }, 2500);
+  } catch (error) {
+    handleFirebaseError(error);
+  } finally {
+    refreshButton.disabled = false;
+    refreshButton.textContent = "🔄 最新の情報に更新";
+  }
+});
 </script>
-
 </body>
 </html>
